@@ -8,9 +8,9 @@ from typing import List, Optional, Any
 from .lexer import tokenize, LexerError
 from .parser import parse, ParseError
 from .ast.statements import Program
-from .interpreter.environment import Environment
-from .interpreter.evaluator import Evaluator
-from .interpreter.control-flow import HRuntimeError
+from .interpreter_impl.environment import Environment
+from .interpreter_impl.evaluator import Evaluator
+from .interpreter_impl.control_flow import HRuntimeError
 from .stdlib.builtins import Builtins
 
 
