@@ -30,7 +30,7 @@ H 语言采用分层设计，文档按以下结构组织：
 │  ┌─────────────────────────────────┐    │
 │  │     H-Stdlib 标准库参考        │    │
 │  │   内置动作和API                 │    │
-│  │   • say, add, remove...         │    │
+│  │   • echo, add, remove...         │    │
 │  │   • 计时器、测试框架              │    │
 │  └─────────────────────────────────┘    │
 └─────────────────────────────────────────┘
@@ -110,7 +110,7 @@ game-framework-spec.md (扩展)
 set $counter to 0
 while $counter is less than 5:
     increase $counter by 1
-    say "Count: " + $counter
+    echo "Count: " + $counter
 ```
 
 ### 完整游戏（使用所有层次）
@@ -122,10 +122,10 @@ Room Entrance:
 
 on game start:
     set player.location to "Entrance"
-    say "Your adventure begins!"
+    echo "Your adventure begins!"
 
 on every turn:
-    say "You are in " + player.location
+    echo "You are in " + player.location
 ```
 
 ---

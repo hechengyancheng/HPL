@@ -56,7 +56,7 @@ H 语言使用 **UTF-8** 编码，标识符支持 Unicode 字符。
 
 ```h
 if health is less than 50:
-    say "You are wounded."
+    echo "You are wounded."
     set player.status to "injured"
 ```
 
@@ -229,12 +229,12 @@ else:
 
 ```h
 if player.health is less than 25:
-    say "Critical health!"
+    echo "Critical health!"
     set player.status to "critical"
 else if player.health is less than 50:
-    say "You are wounded."
+    echo "You are wounded."
 else:
-    say "You are healthy."
+    echo "You are healthy."
 ```
 
 ### 5.3 循环语句
@@ -249,7 +249,7 @@ while <条件>:
 ```h
 while enemy.health is greater than 0:
     perform combat.attack with player, enemy
-    say "You attack the enemy!"
+    echo "You attack the enemy!"
 ```
 
 ### 5.4 函数定义
@@ -272,7 +272,7 @@ function calculateDamage(base, multiplier):
     return result
 
 function greet(name):
-    say "Hello, " + name
+    echo "Hello, " + name
 
 function checkHealth(entity):
     if entity.health is less than 25:
@@ -485,7 +485,7 @@ return_stmt     = "return", [ expression ];
 (* --------------------------------------------
    语句
    -------------------------------------------- *)
-statement       = assignment | if_stmt | while_stmt | say_stmt | ask_stmt
+statement       = assignment | if_stmt | while_stmt | echo_stmt | ask_stmt
                  | add_stmt | remove_stmt | move_stmt | endgame_stmt
                  | timer_stmt | stop_timer_stmt | increase_stmt | decrease_stmt
                  | perform_stmt | parallel_stmt | function_call_stmt;
@@ -506,7 +506,7 @@ else_block      = "else", ":", indent, { statement }, dedent;
 
 while_stmt      = "while", expression, ":", indent, { statement }, dedent;
 
-say_stmt        = "say", string;
+echo_stmt        = "echo", string;
 
 add_stmt        = "add", identifier, "to", expression;
 remove_stmt     = "remove", identifier, "from", expression;
@@ -623,25 +623,25 @@ set $items to ["apple", "banana", "cherry"]
 
 // 条件判断
 if $counter is less than 10:
-    say "Counter is low"
+    echo "Counter is low"
 else if $counter is less than 100:
-    say "Counter is moderate"
+    echo "Counter is moderate"
 else:
-    say "Counter is high"
+    echo "Counter is high"
 
 // 循环
 while $counter is less than 5:
     increase $counter by 1
-    say "Counting..."
+    echo "Counting..."
 
 // 列表操作与索引访问
 if $items contains "banana":
-    say "We have bananas!"
-    say "First item is: " + $items[0]
+    echo "We have bananas!"
+    echo "First item is: " + $items[0]
 
 // 函数定义与调用
 function greet(name):
-    say "Hello, " + name
+    echo "Hello, " + name
 
 function sum(a, b):
     return a + b
@@ -663,7 +663,7 @@ set player.name to "Alice"
 set player.level to 1
 
 if player.level is greater than 0:
-    say "Welcome, " + player.name
+    echo "Welcome, " + player.name
 
 // 列表切片示例
 set numbers to [1, 2, 3, 4, 5]

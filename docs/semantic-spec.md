@@ -54,9 +54,9 @@ set $global to "global value"
 
 function example():
     set local to "local value"
-    say local      // 查找局部作用域 → "local value"
-    say $global    // 查找全局作用域 → "global value"
-    say len([1,2]) // 查找内置作用域 → 3
+    echo local      // 查找局部作用域 → "local value"
+    echo $global    // 查找全局作用域 → "global value"
+    echo len([1,2]) // 查找内置作用域 → 3
 ```
 
 ### 2.3 变量遮蔽（Shadowing）
@@ -68,10 +68,10 @@ set x to "outer"
 
 function test():
     set x to "inner"  // 遮蔽外层的 x
-    say x             // "inner"
+    echo x             // "inner"
 
 test()
-say x                 // "outer"（外层 x 不变）
+echo x                 // "outer"（外层 x 不变）
 ```
 
 ### 2.4 全局变量声明
@@ -118,7 +118,7 @@ function example():
     if true:
         // 块级变量：进入块时创建，离开块时销毁
         set blockVar to "I live shortest"
-        say blockVar
+        echo blockVar
     
     // blockVar 已销毁，不可访问
     // local 仍然有效
@@ -136,7 +136,7 @@ while i is less than 5:
     set sum to sum + i    // sum 保持状态
     increase i by 1
 
-say sum  // 10
+echo sum  // 10
 ```
 
 ---
@@ -171,7 +171,7 @@ set x to "hello"   // x 的类型变为 string（合法）
 
 // 运行时类型检查
 if type(x) is "string":
-    say "x is a string"
+    echo "x is a string"
 ```
 
 ### 4.3 类型标识
@@ -196,11 +196,11 @@ if type(x) is "string":
 ```h
 function modify(x):
     set x to 100    // 只修改局部副本
-    say x           // 100
+    echo x           // 100
 
 set a to 1
 modify(a)
-say a               // 1（原值不变）
+echo a               // 1（原值不变）
 ```
 
 ### 5.2 对象引用的值传递
@@ -213,7 +213,7 @@ function addItem(inventory, item):
 
 set inv to ["sword"]
 addItem(inv, "shield")
-say inv                      // ["sword", "shield"]
+echo inv                      // ["sword", "shield"]
 ```
 
 ### 5.3 表达式求值顺序
@@ -267,13 +267,13 @@ if hasPermission() or isAdmin():
 
 ```h
 if 0:
-    say "不会执行"
+    echo "不会执行"
 
 if "hello":
-    say "会执行"
+    echo "会执行"
 
 if []:
-    say "不会执行"
+    echo "不会执行"
 ```
 
 ### 6.3 显式转换
@@ -315,9 +315,9 @@ function makeCounter():
     return increment
 
 set counter to makeCounter()
-say counter()  // 1
-say counter()  // 2
-say counter()  // 3
+echo counter()  // 1
+echo counter()  // 2
+echo counter()  // 3
 ```
 
 ### 7.2 词法环境结构
@@ -340,7 +340,7 @@ say counter()  // 3
 function createGreeting(name):
     // greeting 函数捕获 name
     function greeting():
-        say "Hello, " + name
+        echo "Hello, " + name
     
     return greeting
 
@@ -364,9 +364,9 @@ while i is less than 3:
     increase i by 1
 
 // 所有函数都返回 3（i 的最终值）
-say functions[0]()  // 3
-say functions[1]()  // 3
-say functions[2]()  // 3
+echo functions[0]()  // 3
+echo functions[1]()  // 3
+echo functions[2]()  // 3
 ```
 
 **解决方案**：使用立即执行函数或 let 绑定（如果支持）
@@ -391,11 +391,11 @@ say functions[2]()  // 3
 ```h
 function risky():
     set x to 1 / 0    // DivisionError
-    say "不会执行"     // 这行不会执行
+    echo "不会执行"     // 这行不会执行
 
 function caller():
     risky()           // 错误传播到这里
-    say "不会执行"
+    echo "不会执行"
 
 caller()              // 错误到达顶层，程序继续运行（容错模式）
 ```
@@ -405,13 +405,13 @@ caller()              // 错误到达顶层，程序继续运行（容错模式�
 ```h
 function safeDivide(a, b):
     if b is 0:
-        say "Warning: Division by zero"
+        echo "Warning: Division by zero"
         return null
     return a / b
 
 function safeAccess(list, index):
     if index is less than 0 or index is greater than or equal to len(list):
-        say "Warning: Index out of bounds"
+        echo "Warning: Index out of bounds"
         return null
     return list[index]
 ```
@@ -430,9 +430,9 @@ function outer():
     
     function inner():
         set innerVar to "I"
-        say innerVar    // I（局部）
-        say outerVar    // O（外层）
-        say $global     // G（全局）
+        echo innerVar    // I（局部）
+        echo outerVar    // O（外层）
+        echo $global     // G（全局）
     
     inner()
 
@@ -446,13 +446,13 @@ outer()
 set a to 5
 set b to a
 set b to 10
-say a  // 5（不变）
+echo a  // 5（不变）
 
 // 集合类型：引用共享
 set list1 to [1, 2, 3]
 set list2 to list1
 add 4 to list2
-say list1  // [1, 2, 3, 4]（被修改）
+echo list1  // [1, 2, 3, 4]（被修改）
 
 // 显式复制
 function copyList(original):
@@ -467,17 +467,17 @@ function copyList(original):
 ```h
 // 立即求值：参数先计算
 function eager(a, b):
-    say "a = " + a
-    say "b = " + b
+    echo "a = " + a
+    echo "b = " + b
 
 eager(expensive1(), expensive2())  // 两个都立即计算
 
 // 模拟延迟求值：使用函数包装
 function lazy(getA, getB):
     if condition:
-        say getA()  // 只在需要时调用
+        echo getA()  // 只在需要时调用
     else:
-        say getB()
+        echo getB()
 ```
 
 ---

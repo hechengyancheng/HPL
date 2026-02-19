@@ -92,17 +92,17 @@ Item magic_chest:
     
     on opens:
         if this.isLocked:
-            say "The chest is magically sealed."
+            echo "The chest is magically sealed."
         else:
-            say "The chest opens with a soft glow."
+            echo "The chest opens with a soft glow."
             set this.isOpen to true
     
     on uses magic_key:
         if player has magic_key:
             set this.isLocked to false
-            say "The key fits perfectly. The seal breaks!"
+            echo "The key fits perfectly. The seal breaks!"
         else:
-            say "You need a magic key to open this."
+            echo "You need a magic key to open this."
 ```
 
 ### 2.3 角色（Character）
@@ -163,22 +163,22 @@ Item lockable_container:
     
     on opens:
         if this.isLocked:
-            say "It's locked."
+            echo "It's locked."
         else:
             set this.isOpen to true
-            say "You open it."
+            echo "You open it."
     
     on closes:
         set this.isOpen to false
-        say "You close it."
+        echo "You close it."
     
     on uses key:
         if this.isLocked:
             set this.isLocked to false
-            say "You unlock it."
+            echo "You unlock it."
         else:
             set this.isLocked to true
-            say "You lock it."
+            echo "You lock it."
 ```
 
 **创建继承的子类型：**
@@ -192,7 +192,7 @@ Item treasure_chest extends lockable_container:
     on opens:
         // 先调用父类逻辑（隐式）
         if this.isOpen:
-            say "The chest creaks open, revealing glittering treasure!"
+            echo "The chest creaks open, revealing glittering treasure!"
             increase $score by 50
 ```
 
@@ -265,10 +265,10 @@ Item sword:
     on attacks with this at enemy:
         set damage to calculateDamage(player.strength, this.sharpness)
         decrease enemy.health by damage
-        say "You slash the enemy for " + damage + " damage!"
+        echo "You slash the enemy for " + damage + " damage!"
         
         if enemy.health is less than or equal to 0:
-            say "The enemy falls!"
+            echo "The enemy falls!"
             set enemy.isAlive to false
 
 Item healing_potion:
@@ -277,13 +277,13 @@ Item healing_potion:
     on uses this on player:
         increase player.health by 30
         remove this from player.inventory
-        say "You feel rejuvenated!"
+        echo "You feel rejuvenated!"
     
     on gives this to ally:
         increase ally.health by 30
         remove this from player.inventory
         add this to ally.inventory
-        say "You give the potion to " + ally.name
+        echo "You give the potion to " + ally.name
 ```
 
 **动作别名机制：**
@@ -294,11 +294,11 @@ Item healing_potion:
 Item torch:
     on lights|ignites|kindles this:
         set this.isLit to true
-        say "The torch bursts into flame."
+        echo "The torch bursts into flame."
     
     on extinguishes|puts_out|douses this:
         set this.isLit to false
-        say "The torch goes dark."
+        echo "The torch goes dark."
 ```
 
 
@@ -313,10 +313,10 @@ on action: player uses rusty_key on chest:
         set chest.isOpen to true
         set rusty_key.isBroken to true
         increase $score by 10
-        say "The key turns with a snap... and breaks!"
-        say "But the chest swings open."
+        echo "The key turns with a snap... and breaks!"
+        echo "But the chest swings open."
     else:
-        say "The chest is already unlocked."
+        echo "The chest is already unlocked."
 ```
 
 
@@ -325,10 +325,10 @@ on action: player uses rusty_key on chest:
 ```h
 on state: hour is 18:
     set weather to "night"
-    say "The sun sets. Darkness falls."
+    echo "The sun sets. Darkness falls."
 
 on state: player.location is "Courtyard" and not player has lantern:
-    say "It's getting dark. You should find a light source."
+    echo "It's getting dark. You should find a light source."
 ```
 
 **复合动作事件：**
@@ -337,20 +337,20 @@ on state: player.location is "Courtyard" and not player has lantern:
 on action: player uses crowbar on sealed_crate:
     if player.strength is greater than 10:
         set sealed_crate.isOpen to true
-        say "You pry open the crate with brute force!"
+        echo "You pry open the crate with brute force!"
     else:
-        say "You're not strong enough to pry it open."
-        say "Maybe find another way."
+        echo "You're not strong enough to pry it open."
+        echo "Maybe find another way."
 
 on action: player throws bomb at wall:
     start timer explosion for 3 seconds
-    say "The bomb sticks to the wall, ticking ominously..."
+    echo "The bomb sticks to the wall, ticking ominously..."
 
 on action: player combines glue with broken_statue:
     remove glue from player.inventory
     remove broken_statue from player.inventory
     add repaired_statue to player.inventory
-    say "You carefully glue the pieces back together."
+    echo "You carefully glue the pieces back together."
 ```
 
 
@@ -358,7 +358,7 @@ on action: player combines glue with broken_statue:
 
 ```h
 on timer: bomb expires:
-    say "BOOM!"
+    echo "BOOM!"
     end game
 ```
 
@@ -368,10 +368,10 @@ on timer: bomb expires:
 ```h
 on event: random_encounter:
     30% chance:
-        say "A wild wolf appears!"
+        echo "A wild wolf appears!"
         start combat with wolf
     70% chance:
-        say "The path remains clear."
+        echo "The path remains clear."
 ```
 
 ---
@@ -503,7 +503,7 @@ on every turn:
     increase world.hour by 1
     
     if world.hour is greater than 22 and not player.has lantern:
-        say "You are engulfed by darkness..."
+        echo "You are engulfed by darkness..."
         end game
 ```
 
@@ -612,11 +612,11 @@ on every turn:
     if player.location is "CollapsingBridge":
         decrease bridge.supports by 1
         if bridge.supports is 3:
-            say "The bridge creaks ominously..."
+            echo "The bridge creaks ominously..."
         else if bridge.supports is 1:
-            say "The bridge is about to collapse!"
+            echo "The bridge is about to collapse!"
         else if bridge.supports is less than or equal to 0:
-            say "The bridge collapses behind you!"
+            echo "The bridge collapses behind you!"
             // 出口自动不可用
 ```
 
@@ -629,7 +629,7 @@ on every turn:
 ```
 action, assert, at, by, contains, description, dialog, east, event, every, exits
 extends, from, game, goto, has, increase, in, item, items, northeast, northwest, 
-north, on, option, perform, player, remove, room, run, say, set, south, southeast, 
+north, on, option, perform, player, remove, room, run, echo, set, south, southeast, 
 southwest, speaker, start, state, stop, tags, test, text, this, timer, to, turn, 
 uses, wait, when, with
 ```
@@ -672,10 +672,10 @@ Item rusty_key:
             set great_door.isLocked to false
             set great_door.isOpen to true
             set this.isBroken to true
-            say "The key turns with a grinding sound... and snaps!"
-            say "But the door swings open."
+            echo "The key turns with a grinding sound... and snaps!"
+            echo "But the door swings open."
         else:
-            say "The door is already unlocked."
+            echo "The door is already unlocked."
 
 Item lantern:
     description is "A brass lantern. It needs oil."
@@ -684,7 +684,7 @@ Item lantern:
     on uses oil_flask:
         set this.hasOil to true
         set this.isLit to true
-        say "You fill and light the lantern. Warm glow fills the area."
+        echo "You fill and light the lantern. Warm glow fills the area."
 
 Character guard:
     description is "A tired guard leaning on his spear."
@@ -741,16 +741,16 @@ dialog guard_dialog:
         text is "Move along now."
 
 on action: player attacks guard:
-    say "The guard raises his spear. 'You dare?'"
+    echo "The guard raises his spear. 'You dare?'"
     set guard.isHostile to true
 
 on state: player.location is "Courtyard" and not player has lantern:
-    say "It's getting dark. You should find a light source."
+    echo "It's getting dark. You should find a light source."
 
 on every turn:
     increase $moves by 1
     if $moves is greater than 100:
-        say "You collapse from exhaustion..."
+        echo "You collapse from exhaustion..."
         end game
 ```
 

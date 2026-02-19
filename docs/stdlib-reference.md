@@ -21,7 +21,7 @@
 
 | 类别 | 功能 | 适用场景 |
 |------|------|----------|
-| 输出 | `say` | 向用户显示信息 |
+| 输出 | `echo` | 向用户显示信息 |
 | 库存管理 | `add`, `remove` | 管理物品集合 |
 | 移动 | `move to` | 改变位置 |
 | 数值操作 | `increase`, `decrease` | 修改变量值 |
@@ -39,19 +39,19 @@
 
 ### 2.1 输出指令
 
-#### `say <字符串>`
+#### `echo <字符串>`
 
 向玩家或用户显示文本信息。
 
 **语法：**
 ```h
-say <字符串表达式>
+echo <字符串表达式>
 ```
 
 **示例：**
 ```h
-say "Welcome to the adventure!"
-say "Your score is: " + $score
+echo "Welcome to the adventure!"
+echo "Your score is: " + $score
 ```
 
 **说明：**
@@ -207,7 +207,7 @@ end game
 **示例：**
 ```h
 if player.health is less than 1:
-    say "You have fallen..."
+    echo "You have fallen..."
     end game
 ```
 
@@ -284,7 +284,7 @@ stop timer <标识符>
 ```h
 if bomb.defused:
     stop timer bomb
-    say "Bomb defused safely!"
+    echo "Bomb defused safely!"
 ```
 
 **说明：**
@@ -298,12 +298,12 @@ if bomb.defused:
 ```h
 // 设置定时炸弹
 on action: player activates bomb:
-    say "The timer starts ticking!"
+    echo "The timer starts ticking!"
     start timer explosion for 10 seconds
 
 // 计时器到期处理
 on timer: explosion expires:
-    say "BOOM! The explosion rocks the room."
+    echo "BOOM! The explosion rocks the room."
     decrease player.health by 50
     set room.hasExploded to true
 
@@ -311,9 +311,9 @@ on timer: explosion expires:
 on action: player uses wire_cutters on bomb:
     if player.has wire_cutters:
         stop timer explosion
-        say "You carefully cut the right wire. The bomb is defused!"
+        echo "You carefully cut the right wire. The bomb is defused!"
     else:
-        say "You need wire cutters to defuse this."
+        echo "You need wire cutters to defuse this."
 ```
 
 ---
@@ -333,12 +333,12 @@ run in parallel:
 **示例：**
 ```h
 run in parallel:
-    say "The fire spreads..."
+    echo "The fire spreads..."
     increase fire.intensity by 1
     wait for 2 seconds
 
 run in parallel:
-    say "Water drips from the ceiling..."
+    echo "Water drips from the ceiling..."
     wait for 3 seconds
 ```
 
@@ -474,7 +474,7 @@ test "inventory management":
 
 | 功能 | 语法 | 所在章节 |
 |------|------|----------|
-| 输出文本 | `say <string>` | 2.1 |
+| 输出文本 | `echo <string>` | 2.1 |
 | 添加物品 | `add <item> to <target>` | 2.2 |
 | 移除物品 | `remove <item> from <source>` | 2.2 |
 | 移动位置 | `move to <location>` | 2.3 |
@@ -498,9 +498,9 @@ test "inventory management":
 标准库的实现可能因平台而异：
 
 - **H-Game 运行时**：提供完整的游戏相关功能
-- **H-Core 独立运行时**：可能只提供基础功能（say, wait, test等）
-- **Web 平台**：可能将 `say` 映射为 DOM 操作
-- **命令行**：可能将 `say` 映射为控制台输出
+- **H-Core 独立运行时**：可能只提供基础功能（echo, wait, test等）
+- **Web 平台**：可能将 `echo` 映射为 DOM 操作
+- **命令行**：可能将 `echo` 映射为控制台输出
 
 ---
 
