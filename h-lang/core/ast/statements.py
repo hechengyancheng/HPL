@@ -440,7 +440,8 @@ class StatementPrinter(StatementVisitor):
 
 # 测试代码
 if __name__ == "__main__":
-    from .expressions import Literal, Identifier, Comparison, BinaryOperation
+    from .expressions import Literal, Identifier, Comparison, BinaryOperation, GlobalVariable
+
     
     # 构建一个示例程序 AST
     program = Program()

@@ -9,7 +9,8 @@ from ..ast.statements import *
 from ..types.primitive import *
 from ..types.operations import Operations, COMPARISON_OPERATORS
 from .environment import Environment
-from .control-flow import ReturnException, HRuntimeError
+from .control_flow import ReturnException, HRuntimeError
+
 
 
 class Evaluator(ExpressionVisitor, StatementVisitor):

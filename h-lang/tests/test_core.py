@@ -12,7 +12,7 @@ from core.parser import parse, ParseError
 from core.interpreter import HLangInterpreter, run
 from core.types.primitive import *
 from core.types.operations import Operations
-from core.interpreter.control-flow import HRuntimeError
+from core.interpreter.control_flow import HRuntimeError
 
 
 def test_lexer():
