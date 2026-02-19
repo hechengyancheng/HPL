@@ -10,7 +10,8 @@ import os
 # 添加父目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core.interpreter import HLangInterpreter, run_file
+from core.interpreter import HLangInterpreter, run_file, run
+
 from core.lexer import LexerError
 from core.parser import ParseError
 from core.interpreter_impl.control_flow import HRuntimeError
