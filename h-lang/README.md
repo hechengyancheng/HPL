@@ -113,13 +113,15 @@ print(interpreter.get_output())
 ```python
 from h_lang.core.interpreter import run_file
 
-output = run_file("example.h")
+output = run_file("example.hpl")
+
 ```
 
 ## 示例代码
 
-```h
+```hpl
 // 变量和运算
+
 set $counter to 0
 set $items to ["apple", "banana", "cherry"]
 

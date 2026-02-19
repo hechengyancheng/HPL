@@ -19,19 +19,24 @@ class Operations:
     def add(left: HValue, right: HValue) -> HValue:
         """
         加法运算: left + right
-        支持: number + number, string + string, list + element
+        支持: number + number, string + string, string + number, number + string, list + element
         """
         if isinstance(left, HNumber) and isinstance(right, HNumber):
             return left + right
         
-        if isinstance(left, HString) and isinstance(right, HString):
-            return left + right
+        # 字符串拼接（支持自动类型转换）
+        if isinstance(left, HString) or isinstance(right, HString):
+            # 将两边都转换为字符串
+            left_str = left.to_string() if isinstance(left, HValue) else str(left)
+            right_str = right.to_string() if isinstance(right, HValue) else str(right)
+            return HString(left_str + right_str)
         
         # 列表追加元素
         if isinstance(left, HList):
             return left.append(right)
         
         raise HRuntimeError(f"Cannot add {left.type_name()} and {right.type_name()}")
+
     
     @staticmethod
     def subtract(left: HValue, right: HValue) -> HValue:

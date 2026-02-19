@@ -33,8 +33,10 @@ class TokenType(Enum):
     HAS = auto()
     IF = auto()
     IN = auto()
+    DECREASE = auto()
     INCREASE = auto()
     IS = auto()
+
     NOT = auto()
     NULL_KEYWORD = auto()
     ON = auto()
@@ -123,7 +125,9 @@ KEYWORDS = {
     'if': TokenType.IF,
     'in': TokenType.IN,
     'increase': TokenType.INCREASE,
+    'decrease': TokenType.DECREASE,
     'is': TokenType.IS,
+
     'not': TokenType.NOT,
     'null': TokenType.NULL_KEYWORD,
     'on': TokenType.ON,
@@ -269,10 +273,17 @@ class Lexer:
     
     def read_number(self) -> float:
         """读取数字（整数或浮点数）"""
-        # 假设开头数字已消耗
-        start_pos = self.current - 1
+        # 当前位置应该是数字或负号
+        start_pos = self.current
+        
+        # 处理负号
+        if self.peek() == '-':
+            self.advance()
         
         # 整数部分
+        if not self.peek().isdigit():
+            self.error(f"Expected digit after '-' in number")
+        
         while self.peek().isdigit():
             self.advance()
         
@@ -283,18 +294,25 @@ class Lexer:
                 self.advance()
         
         num_str = self.source[start_pos:self.current]
+        if not num_str or num_str == '-':
+            self.error(f"Invalid number format: '{num_str}'")
         return float(num_str)
+
     
-    def read_identifier(self) -> str:
+    def read_identifier(self, first_char: str = '') -> str:
         """读取标识符"""
-        # 假设开头字符已消耗
-        start_pos = self.current - 1
+        # first_char 是已经消耗的第一个字符
+        # 当前位置应该是标识符的第二个字符
+        start_pos = self.current
         
         while (not self.is_at_end() and 
                (self.peek().isalnum() or self.peek() == '_')):
             self.advance()
         
-        return self.source[start_pos:self.current]
+        rest = self.source[start_pos:self.current]
+        return first_char + rest
+
+
     
     def read_line_comment(self):
         """跳过单行注释 // ... """
@@ -381,20 +399,28 @@ class Lexer:
             return True
         
         # 数字
-        if char.isdigit() or (char == '-' and self.peek().isdigit()):
-            # 回退，让read_number处理完整数字
+        if char.isdigit():
+            # 回退一格，让read_number从数字开始处理
             self.current -= 1
             self.column -= 1
             value = self.read_number()
             self.add_token(TokenType.NUMBER, value)
             return True
         
-        # 标识符或关键字
-        if char.isalpha() or char == '_':
-            # 回退，让read_identifier处理完整标识符
+        # 负号开头的数字
+        if char == '-' and self.peek().isdigit():
+            # 回退一格，让read_number从负号开始处理
             self.current -= 1
             self.column -= 1
-            identifier = self.read_identifier()
+            value = self.read_number()
+            self.add_token(TokenType.NUMBER, value)
+            return True
+
+        
+        # 标识符或关键字
+        if char.isalpha() or char == '_':
+            # char 已经被消耗，作为第一个字符传给 read_identifier
+            identifier = self.read_identifier(char)
             
             # 检查是否是关键字
             if identifier in KEYWORDS:
@@ -411,6 +437,8 @@ class Lexer:
             else:
                 self.add_token(TokenType.IDENTIFIER, identifier)
             return True
+
+
         
         # 全局变量 $xxx
         if char == '$':

@@ -160,6 +160,10 @@ class Parser:
         if self.match(TokenType.INCREASE):
             return self.increase_statement()
         
+        if self.match(TokenType.DECREASE):
+            return self.decrease_statement()
+
+        
         if self.match(TokenType.FOR):
             # 简化处理：for循环
             pass
@@ -303,24 +307,26 @@ class Parser:
         expr = self.expression()
         return EchoStatement(expr)
     
-    def increase_statement(self) -> Statement:
+    def increase_statement(self) -> IncreaseStatement:
         """
-        解析增加/减少语句: increase/decrease <target> by <amount>
+        解析增加语句: increase <target> by <amount>
         """
-        # 回退，重新判断是 increase 还是 decrease
-        self.current -= 1
-        is_increase = self.match(TokenType.INCREASE)
-        
         target = self.lvalue()
         self.consume(TokenType.BY, "Expected 'by' after target")
         amount = self.expression()
         
-        if is_increase:
-            return IncreaseStatement(target, amount)
-        else:
-            # 这里需要处理 decrease，但token已经被消耗了
-            # 简化处理，实际应该在statement()中区分
-            pass
+        return IncreaseStatement(target, amount)
+    
+    def decrease_statement(self) -> DecreaseStatement:
+        """
+        解析减少语句: decrease <target> by <amount>
+        """
+        target = self.lvalue()
+        self.consume(TokenType.BY, "Expected 'by' after target")
+        amount = self.expression()
+        
+        return DecreaseStatement(target, amount)
+
     
     def block(self) -> List[Statement]:
         """

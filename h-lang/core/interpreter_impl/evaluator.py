@@ -89,9 +89,17 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     def visit_identifier(self, expr: Identifier) -> HValue:
         """求值标识符（变量引用）"""
         try:
-            return self.env.get(expr.name)
+            value = self.env.get(expr.name)
+            # 如果标识符引用的是一个函数定义，自动调用它（无参数函数）
+            if isinstance(value, FunctionDefinition):
+                if len(value.parameters) == 0:
+                    return self._call_function(value, [])
+                else:
+                    raise HRuntimeError(f"Function '{expr.name}' requires {len(value.parameters)} arguments")
+            return value
         except KeyError:
             raise HRuntimeError(f"Undefined variable: {expr.name}")
+
     
     def visit_global_variable(self, expr: GlobalVariable) -> HValue:
         """求值全局变量"""
@@ -434,8 +442,29 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     
     def visit_decrease_statement(self, stmt: 'DecreaseStatement'):
         """执行减少语句"""
-        # 类似increase，但是减法
-        pass  # 简化处理
+        target = stmt.target
+        amount = stmt.amount.accept(self)
+        
+        if not isinstance(amount, HNumber):
+            raise HRuntimeError("Decrease amount must be a number")
+        
+        if isinstance(target, Identifier):
+            current = self.env.get(target.name)
+            if not isinstance(current, HNumber):
+                raise HRuntimeError(f"Cannot decrease non-number: {target.name}")
+            new_value = current - amount
+            self.env.assign(target.name, new_value)
+        
+        elif isinstance(target, GlobalVariable):
+            current = self.env.get_global(target.name)
+            if not isinstance(current, HNumber):
+                raise HRuntimeError(f"Cannot decrease non-number: ${target.name}")
+            new_value = current - amount
+            self.env.assign_global(target.name, new_value)
+        
+        else:
+            raise HRuntimeError(f"Invalid decrease target: {type(target)}")
+
     
     def visit_add_statement(self, stmt: 'AddStatement'):
         """执行添加元素语句"""
