@@ -12,14 +12,14 @@ from ..hl_types.operations import Operations, COMPARISON_OPERATORS
 from .environment import Environment
 from .control_flow import ReturnException, HRuntimeError, EndGameException
 
-# Import stdlib actions - handle both module and package execution
+# 导入标准库动作 - 处理模块和包执行两种情况
 import sys
 import os
 
-# Try multiple import strategies
+# 尝试多种导入策略
 _stdlib_imported = False
 
-# Strategy 1: Relative import (when running as part of package with proper context)
+# 策略1：相对导入（在具有正确上下文的包中运行时）
 if not _stdlib_imported:
     try:
         from ...stdlib.actions import StdlibActions, ActionContext
@@ -27,12 +27,12 @@ if not _stdlib_imported:
     except ImportError:
         pass
 
-# Strategy 2: Direct path manipulation - add h-lang to path
+# 策略2：直接路径操作 - 将 h-lang 添加到路径
 if not _stdlib_imported:
     try:
-        # Get the directory containing this file
+        # 获取包含此文件的目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Go up to h-lang directory (core/interpreter_impl -> core -> h-lang)
+        # 向上到 h-lang 目录（core/interpreter_impl -> core -> h-lang）
         h_lang_dir = os.path.dirname(os.path.dirname(current_dir))
         
         if h_lang_dir not in sys.path:
@@ -43,17 +43,17 @@ if not _stdlib_imported:
     except ImportError:
         pass
 
-# Strategy 3: Try with project root
+# 策略3：尝试项目根目录
 if not _stdlib_imported:
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Go up to project root (h-lang's parent)
+        # 向上到项目根目录（h-lang 的父目录）
         project_root = os.path.dirname(os.path.dirname(current_dir))
         
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
         
-        # Try importing as if h-lang is in path
+        # 尝试导入，假设 h-lang 在路径中
         h_lang_path = os.path.join(project_root, 'h-lang')
         if h_lang_path not in sys.path:
             sys.path.insert(0, h_lang_path)
@@ -63,17 +63,13 @@ if not _stdlib_imported:
     except ImportError:
         pass
 
-# Strategy 4: Last resort - check if already in path
+# 策略4：最后手段 - 检查是否已在路径中
 if not _stdlib_imported:
     try:
         from stdlib.actions import StdlibActions, ActionContext
         _stdlib_imported = True
     except ImportError as e:
         raise ImportError(f"Could not import StdlibActions from any location. sys.path: {sys.path[:3]}... Error: {e}")
-
-
-
-
 
 
 class Evaluator(ExpressionVisitor, StatementVisitor):

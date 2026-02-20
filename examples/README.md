@@ -1,19 +1,21 @@
-# HPL Core Features Demo
+# HPL 核心功能演示
 
-This directory contains example HPL (H Programming Language) scripts that demonstrate the core functionality of the language.
+本目录包含示例 HPL（H 编程语言）脚本，用于演示该语言的核心功能。
 
-## Files
+## 文件
 
-- `core_features_demo.hpl` - Comprehensive demonstration of all HPL core features
+- `core_features_demo.hpl` - 全面演示所有 HPL 核心功能
 
-## Running the Demo
+## 运行演示
+
 
 ```bash
 cd h-lang
 python run_demo.py
 ```
 
-Or run specific sections:
+或运行特定部分：
+
 
 ```bash
 python run_demo.py --section variables
@@ -21,104 +23,108 @@ python run_demo.py --section functions
 python run_demo.py --section game
 ```
 
-## Interactive Mode
+## 交互模式
 
 ```bash
 python run_demo.py --interactive
 ```
 
-## Features Demonstrated
+## 演示的功能
 
-### 1. Variables and Assignment
-- Basic variables: `set x to 10`
-- Global variables: `set $globalVar to 100`
 
-### 2. Data Types
-- Numbers (integers and floats)
-- Strings with escape sequences
-- Booleans (`true`, `false`)
-- Null (`null`)
-- Lists: `[1, 2, 3]`
+### 1. 变量与赋值
+- 基本变量：`set x to 10`
+- 全局变量：`set $globalVar to 100`
 
-### 3. Arithmetic Operations
-- Addition, subtraction, multiplication, division, modulo
-- Negation: `-42`
-- Complex expressions with parentheses
+### 2. 数据类型
+- 数字（整数和浮点数）
+- 带转义序列的字符串
+- 布尔值（`true`、`false`）
+- 空值（`null`）
+- 列表：`[1, 2, 3]`
 
-### 4. Comparison Operations
-- `is` (equals)
-- `is not` (not equals)
-- `is greater than` / `>`
-- `is less than` / `<`
-- `is at least` / `>=`
-- `is at most` / `<=`
+### 3. 算术运算
+- 加、减、乘、除、取模
+- 取反：`-42`
+- 带括号的复杂表达式
 
-### 5. Logical Operations
-- `and` (logical AND)
-- `or` (logical OR)
-- `not` (logical NOT)
+### 4. 比较运算
+- `is`（等于）
+- `is not`（不等于）
+- `is greater than` / `>`（大于）
+- `is less than` / `<`（小于）
+- `is at least` / `>=`（至少/大于等于）
+- `is at most` / `<=`（至多/小于等于）
 
-### 6. Control Flow
-- If/else if/else statements
-- While loops
-- Break/continue support
+### 5. 逻辑运算
+- `and`（逻辑与）
+- `or`（逻辑或）
+- `not`（逻辑非）
 
-### 7. Functions
-- Function definition: `function name(params):`
-- Function calls with arguments
-- Return statements
-- Recursive functions
+### 6. 控制流
+- If/else if/else 语句
+- While 循环
+- Break/continue 支持
 
-### 8. List Operations
-- Index access: `list[0]`, `list[-1]`
-- Length: `len(list)`
-- Contains check: `list contains element`
-- Sort: `sort(list)`
-- Reverse: `reverse(list)`
-- Append: `append(list, element)`
-- Index of: `indexOf(list, element)`
+### 7. 函数
+- 函数定义：`function name(params):`
+- 带参数的函数调用
+- Return 语句
+- 递归函数
 
-### 9. String Operations
-- Length: `len(string)`
-- Upper/lower case: `upper(string)`, `lower(string)`
-- Contains: `contains(string, substring)`
-- Starts/ends with: `startsWith(string, prefix)`, `endsWith(string, suffix)`
-- Substring: `substring(string, start, length)`
-- Split: `split(string, separator)`
-- Replace: `replace(string, old, new)`
-- Trim: `trim(string)`
+### 8. 列表操作
+- 索引访问：`list[0]`、`list[-1]`
+- 长度：`len(list)`
+- 包含检查：`list contains element`
+- 排序：`sort(list)`
+- 反转：`reverse(list)`
+- 追加：`append(list, element)`
+- 查找索引：`indexOf(list, element)`
 
-### 10. Math Functions
-- `floor(number)`
-- `ceil(number)`
-- `round(number, precision)`
-- `abs(number)`
-- `max(a, b, c...)`
-- `min(a, b, c...)`
-- `sqrt(number)`
-- `pow(base, exponent)`
-- `random()`, `randomInt(min, max)`
+### 9. 字符串操作
+- 长度：`len(string)`
+- 大小写转换：`upper(string)`、`lower(string)`
+- 包含检查：`contains(string, substring)`
+- 开头/结尾检查：`startsWith(string, prefix)`、`endsWith(string, suffix)`
+- 子字符串：`substring(string, start, length)`
+- 分割：`split(string, separator)`
+- 替换：`replace(string, old, new)`
+- 去空格：`trim(string)`
 
-### 11. Type Conversion
-- `toString(value)`
-- `toNumber(value)`
-- `toBoolean(value)`
-- `toList(value)`
+### 10. 数学函数
+- `floor(number)`（向下取整）
+- `ceil(number)`（向上取整）
+- `round(number, precision)`（四舍五入）
+- `abs(number)`（绝对值）
+- `max(a, b, c...)`（最大值）
+- `min(a, b, c...)`（最小值）
+- `sqrt(number)`（平方根）
+- `pow(base, exponent)`（幂运算）
+- `random()`、`randomInt(min, max)`（随机数）
 
-### 12. Special Statements
-- `increase variable by amount`
-- `decrease variable by amount`
-- `ask "prompt" as variable`
-- `echo expression`
+### 11. 类型转换
+- `toString(value)`（转字符串）
+- `toNumber(value)`（转数字）
+- `toBoolean(value)`（转布尔值）
+- `toList(value)`（转列表）
 
-## Example Code Snippets
+### 12. 特殊语句
+- `increase variable by amount`（增加变量值）
+- `decrease variable by amount`（减少变量值）
+- `ask "prompt" as variable`（询问输入）
+- `echo expression`（输出表达式）
+
+
+## 代码示例片段
 
 ### Hello World
+
 ```hpl
 echo "Hello, World!"
 ```
 
-### Variables and Math
+### 变量与数学运算
+
 ```hpl
 set x to 10
 set y to 20
@@ -126,7 +132,8 @@ set sum to x + y
 echo "Sum: " + sum
 ```
 
-### Conditionals
+### 条件语句
+
 ```hpl
 set temperature to 25
 if temperature is greater than 30:
@@ -135,7 +142,8 @@ else:
     echo "It's not too hot"
 ```
 
-### Loops
+### 循环
+
 ```hpl
 set counter to 0
 while counter is less than 5:
@@ -143,7 +151,8 @@ while counter is less than 5:
     increase counter by 1
 ```
 
-### Functions
+### 函数
+
 ```hpl
 function greet(name):
     echo "Hello, " + name
@@ -151,14 +160,16 @@ function greet(name):
 greet("World")
 ```
 
-### Lists
+### 列表
+
 ```hpl
 set items to ["apple", "banana", "cherry"]
 echo items[0]
 echo "Length: " + len(items)
 ```
 
-### Game Logic Example
+### 游戏逻辑示例
+
 ```hpl
 set $playerHealth to 100
 
