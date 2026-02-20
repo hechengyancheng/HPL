@@ -5,15 +5,62 @@ H语言主解释器入口
 """
 
 from typing import List, Optional, Any
-from .lexer import tokenize, LexerError
-from .parser import parse, ParseError
-from .ast.statements import Program
-from .interpreter_impl.environment import Environment
-from .interpreter_impl.evaluator import Evaluator
-from .interpreter_impl.control_flow import HRuntimeError
-from ..stdlib.builtins import Builtins
+import sys
+import os
 
-from .hl_types.primitive import from_python, to_python
+# Try multiple import strategies
+_imported = False
+
+# Strategy 1: Relative imports (when running as part of package)
+try:
+    from .lexer import tokenize, LexerError
+    from .parser import parse, ParseError
+    from .ast.statements import Program
+    from .interpreter_impl.environment import Environment
+    from .interpreter_impl.evaluator import Evaluator
+    from .interpreter_impl.control_flow import HRuntimeError
+    from ..stdlib.builtins import Builtins
+    from .hl_types.primitive import from_python, to_python
+    _imported = True
+except ImportError:
+    pass
+
+# Strategy 2: Direct imports (when h-lang is in path)
+if not _imported:
+    try:
+        from core.lexer import tokenize, LexerError
+        from core.parser import parse, ParseError
+        from core.ast.statements import Program
+        from core.interpreter_impl.environment import Environment
+        from core.interpreter_impl.evaluator import Evaluator
+        from core.interpreter_impl.control_flow import HRuntimeError
+        from stdlib.builtins import Builtins
+        from core.hl_types.primitive import from_python, to_python
+        _imported = True
+    except ImportError:
+        pass
+
+# Strategy 3: Add paths and try again
+if not _imported:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        h_lang_dir = os.path.dirname(current_dir)
+        
+        if h_lang_dir not in sys.path:
+            sys.path.insert(0, h_lang_dir)
+        
+        from core.lexer import tokenize, LexerError
+        from core.parser import parse, ParseError
+        from core.ast.statements import Program
+        from core.interpreter_impl.environment import Environment
+        from core.interpreter_impl.evaluator import Evaluator
+        from core.interpreter_impl.control_flow import HRuntimeError
+        from stdlib.builtins import Builtins
+        from core.hl_types.primitive import from_python, to_python
+        _imported = True
+    except ImportError as e:
+        raise ImportError(f"Could not import required modules: {e}")
+
 
 
 

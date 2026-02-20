@@ -5,10 +5,55 @@ H语言标准库动作指令实现
 
 import time
 import threading
+import sys
+import os
 from typing import Any, Dict, List, Optional, Callable
-from ..core.hl_types.primitive import *
 
-from ..core.interpreter_impl.control_flow import HRuntimeError, EndGameException
+# Try multiple import strategies
+_hl_types_imported = False
+
+# Strategy 1: Relative import
+try:
+    from ..core.hl_types.primitive import *
+    from ..core.interpreter_impl.control_flow import HRuntimeError, EndGameException
+    _hl_types_imported = True
+except ImportError:
+    pass
+
+# Strategy 2: Add h-lang to path and import directly
+if not _hl_types_imported:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        h_lang_dir = os.path.dirname(current_dir)
+        
+        if h_lang_dir not in sys.path:
+            sys.path.insert(0, h_lang_dir)
+        
+        from core.hl_types.primitive import *
+        from core.interpreter_impl.control_flow import HRuntimeError, EndGameException
+        _hl_types_imported = True
+    except ImportError:
+        pass
+
+# Strategy 3: Try with project root
+if not _hl_types_imported:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        
+        h_lang_path = os.path.join(project_root, 'h-lang')
+        if h_lang_path not in sys.path:
+            sys.path.insert(0, h_lang_path)
+        
+        from core.hl_types.primitive import *
+        from core.interpreter_impl.control_flow import HRuntimeError, EndGameException
+        _hl_types_imported = True
+    except ImportError as e:
+        raise ImportError(f"Could not import hl_types from any location: {e}")
+
 
 
 
@@ -59,6 +104,12 @@ class ActionContext:
         self.event_handlers: Dict[str, List[Callable]] = {}
         self.player_location: Optional[str] = None
         self.inventory: HList = HList([])
+        
+        # 游戏状态
+        self.game_state: Dict[str, Any] = {}
+        self.current_turn: int = 0
+        self.registered_classes: Dict[str, Any] = {}  # 存储类定义
+
     
     def set_output_handler(self, handler: OutputHandler):
         """设置输出处理器"""
@@ -113,6 +164,106 @@ class ActionContext:
             if thread.is_alive():
                 thread.join(timeout=1.0)
         self.parallel_tasks.clear()
+    
+    # ==================== 事件系统 ====================
+    
+    def register_event_handler(self, event_type: str, handler: Callable, 
+                                  condition: Optional[Any] = None,
+                                  action: Optional[str] = None):
+        """
+        注册事件处理器
+        
+        Args:
+            event_type: 事件类型 (action, state, timer, event, game_start, every_turn)
+            handler: 处理函数
+            condition: 触发条件（可选）
+            action: 动作名称（用于action类型）
+        """
+        if event_type not in self.event_handlers:
+            self.event_handlers[event_type] = []
+        
+        handler_info = {
+            'handler': handler,
+            'condition': condition,
+            'action': action
+        }
+        self.event_handlers[event_type].append(handler_info)
+    
+    def trigger_event(self, event_type: str, **kwargs) -> bool:
+        """
+        触发事件
+        
+        Args:
+            event_type: 事件类型
+            **kwargs: 事件参数
+            
+        Returns:
+            是否有处理器处理了事件
+        """
+        if event_type not in self.event_handlers:
+            return False
+        
+        handlers = self.event_handlers[event_type]
+        triggered = False
+        
+        for handler_info in handlers:
+            handler = handler_info['handler']
+            condition = handler_info.get('condition')
+            action = handler_info.get('action')
+            
+            # 检查动作匹配（用于action类型）
+            if action is not None:
+                event_action = kwargs.get('action')
+                if event_action != action:
+                    continue
+            
+            # 检查条件（用于state类型）
+            if condition is not None:
+                if not self._check_condition(condition):
+                    continue
+            
+            # 执行处理器
+            try:
+                handler(**kwargs)
+                triggered = True
+            except Exception as e:
+                self.echo(f"Event handler error: {e}")
+        
+        return triggered
+    
+    def _check_condition(self, condition: Any) -> bool:
+        """检查条件是否满足"""
+        # 简化实现：条件可以是函数或值
+        if callable(condition):
+            return condition()
+        return bool(condition)
+    
+    def register_class(self, class_type: str, name: str, class_def: Any):
+        """注册类定义"""
+        if class_type not in self.registered_classes:
+            self.registered_classes[class_type] = {}
+        self.registered_classes[class_type][name] = class_def
+    
+    def get_class(self, class_type: str, name: str) -> Optional[Any]:
+        """获取类定义"""
+        if class_type in self.registered_classes:
+            return self.registered_classes[class_type].get(name)
+        return None
+    
+    def set_game_state(self, key: str, value: Any):
+        """设置游戏状态"""
+        self.game_state[key] = value
+    
+    def get_game_state(self, key: str) -> Any:
+        """获取游戏状态"""
+        return self.game_state.get(key)
+    
+    def next_turn(self):
+        """进入下一回合"""
+        self.current_turn += 1
+        # 触发每回合事件
+        self.trigger_event('every_turn', turn=self.current_turn)
+
 
 
 class Timer:

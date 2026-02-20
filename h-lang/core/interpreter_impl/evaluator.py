@@ -13,14 +13,65 @@ from .environment import Environment
 from .control_flow import ReturnException, HRuntimeError, EndGameException
 
 # Import stdlib actions - handle both module and package execution
-try:
-    from ...stdlib.actions import StdlibActions, ActionContext
-except ImportError:
-    # When running as script or in different context
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-    from stdlib.actions import StdlibActions, ActionContext
+import sys
+import os
+
+# Try multiple import strategies
+_stdlib_imported = False
+
+# Strategy 1: Relative import (when running as part of package with proper context)
+if not _stdlib_imported:
+    try:
+        from ...stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError:
+        pass
+
+# Strategy 2: Direct path manipulation - add h-lang to path
+if not _stdlib_imported:
+    try:
+        # Get the directory containing this file
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up to h-lang directory (core/interpreter_impl -> core -> h-lang)
+        h_lang_dir = os.path.dirname(os.path.dirname(current_dir))
+        
+        if h_lang_dir not in sys.path:
+            sys.path.insert(0, h_lang_dir)
+        
+        from stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError:
+        pass
+
+# Strategy 3: Try with project root
+if not _stdlib_imported:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up to project root (h-lang's parent)
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        
+        # Try importing as if h-lang is in path
+        h_lang_path = os.path.join(project_root, 'h-lang')
+        if h_lang_path not in sys.path:
+            sys.path.insert(0, h_lang_path)
+        
+        from stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError:
+        pass
+
+# Strategy 4: Last resort - check if already in path
+if not _stdlib_imported:
+    try:
+        from stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError as e:
+        raise ImportError(f"Could not import StdlibActions from any location. sys.path: {sys.path[:3]}... Error: {e}")
+
+
 
 
 
@@ -677,15 +728,108 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         for prop_name, prop_expr in stmt.properties.items():
             class_instance['properties'][prop_name] = prop_expr.accept(self)
         
-        # 存储类定义
-        self.env.define(stmt.name, from_python(class_instance))
+        # 注册类定义到ActionContext
+        self.action_context.register_class(stmt.class_type, stmt.name, class_instance)
+        
+        # 注册所有事件处理器
+        for handler in stmt.event_handlers:
+            self._register_event_handler(stmt.class_type, stmt.name, handler)
+        
+        # 存储类定义到环境 - 使用HObject包装
+        # 创建一个特殊的HValue来存储类实例
+        class_hvalue = HObject(class_instance)
+        self.env.define(stmt.name, class_hvalue)
         return HNull()
 
+    
+    def _register_event_handler(self, class_type: str, class_name: str, handler: EventHandler):
+        """注册事件处理器到ActionContext"""
+        # 创建执行器闭包
+        def handler_func(**kwargs):
+            # 创建新环境执行处理器
+            handler_env = Environment(self.env)
+            previous_env = self.env
+            self.env = handler_env
+            
+            try:
+                for stmt in handler.body:
+                    stmt.accept(self)
+            finally:
+                self.env = previous_env
+        
+        # 根据事件类型注册
+        event_type = handler.event_type
+        
+        if event_type == "action":
+            # on action: player uses item:
+            self.action_context.register_event_handler(
+                'action', 
+                handler_func,
+                action=handler.action
+            )
+        elif event_type == "state":
+            # on state: condition:
+            # 条件需要在触发时评估
+            def condition_func():
+                if handler.condition:
+                    result = handler.condition.accept(self)
+                    return result.is_truthy()
+                return True
+            
+            self.action_context.register_event_handler(
+                'state',
+                handler_func,
+                condition=condition_func
+            )
+        elif event_type == "timer":
+            # on timer: name expires:
+            timer_name = None
+            if handler.condition:
+                # 条件应该是计时器名称
+                from ..ast.expressions import Identifier
+                if isinstance(handler.condition, Identifier):
+                    timer_name = handler.condition.name
+            
+            self.action_context.register_event_handler(
+                'timer',
+                handler_func,
+                action=timer_name
+            )
+        elif event_type == "event":
+            # on event: name:
+            event_name = None
+            if handler.condition:
+                from ..ast.expressions import Identifier
+                if isinstance(handler.condition, Identifier):
+                    event_name = handler.condition.name
+            
+            self.action_context.register_event_handler(
+                'event',
+                handler_func,
+                action=event_name
+            )
+        elif event_type == "game_start":
+            # on game start:
+            self.action_context.register_event_handler('game_start', handler_func)
+        elif event_type == "every_turn":
+            # on every turn:
+            self.action_context.register_event_handler('every_turn', handler_func)
+
     def visit_event_handler(self, stmt: EventHandler):
-        """执行事件处理器"""
-        # 事件处理器在类定义时注册，这里不需要执行
-        # 实际的事件触发由游戏框架处理
+        """执行事件处理器（单独执行时）"""
+        # 通常事件处理器在类定义时注册，但也可以单独注册
+        # 获取当前类上下文（如果有）
+        class_name = self.action_context.get_game_state('current_class')
+        class_type = self.action_context.get_game_state('current_class_type')
+        
+        if class_name and class_type:
+            self._register_event_handler(class_type, class_name, stmt)
+        else:
+            # 全局事件处理器
+            self._register_event_handler('global', 'global', stmt)
+        
         return HNull()
+
 
     def visit_dialog_statement(self, stmt: DialogStatement):
         """执行对话语句"""
@@ -693,18 +837,63 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         text = stmt.text.accept(self)
         
         # 输出对话
-        self.output_buffer.append(f"{speaker.to_string()}: {text.to_string()}")
+        dialog_output = f"{speaker.to_string()}: {text.to_string()}"
+        self.output_buffer.append(dialog_output)
+        self.stdlib_actions.echo(HString(dialog_output))
         
         # 显示选项
         for i, (option_text, target) in enumerate(stmt.options, 1):
-            self.output_buffer.append(f"  {i}. {option_text}")
+            option_output = f"  {i}. {option_text}"
+            self.output_buffer.append(option_output)
+            self.stdlib_actions.echo(HString(option_output))
+        
+        # 存储对话状态供后续处理
+        self.action_context.set_game_state('current_dialog', {
+            'speaker': speaker.to_string(),
+            'text': text.to_string(),
+            'options': stmt.options
+        })
         
         return HNull()
 
     def visit_exit_definition(self, stmt: ExitDefinition):
         """执行出口定义"""
         # 出口定义在类定义时处理，这里不需要执行
+        # 但我们可以注册到游戏状态中
+        exits = self.action_context.get_game_state('exits') or {}
+        direction = stmt.direction
+        
+        exit_info = {
+            'target': stmt.target_room,
+            'condition': stmt.condition
+        }
+        
+        exits[direction] = exit_info
+        self.action_context.set_game_state('exits', exits)
+        
         return HNull()
+    
+    def trigger_event(self, event_type: str, **kwargs) -> bool:
+        """
+        触发事件（供外部调用）
+        
+        Args:
+            event_type: 事件类型
+            **kwargs: 事件参数
+            
+        Returns:
+            是否有处理器处理了事件
+        """
+        return self.action_context.trigger_event(event_type, **kwargs)
+    
+    def start_game(self):
+        """启动游戏，触发游戏开始事件"""
+        # 触发游戏开始事件
+        self.action_context.trigger_event('game_start')
+    
+    def next_turn(self):
+        """进入下一回合"""
+        self.action_context.next_turn()
 
     
     def get_output(self) -> List[str]:

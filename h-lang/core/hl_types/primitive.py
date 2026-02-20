@@ -373,7 +373,44 @@ class HNull(HValue):
         return False
 
 
+class HObject(HValue):
+    """
+    H语言对象类型
+    用于存储类实例等复杂数据结构
+    """
+    
+    def __init__(self, value: dict):
+        super().__init__(value)
+    
+    def type_name(self) -> str:
+        return "object"
+    
+    def to_string(self) -> str:
+        return f"object({len(self.value)} properties)"
+    
+    def copy(self) -> 'HObject':
+        # 浅拷贝
+        return HObject(self.value.copy())
+    
+    def is_truthy(self) -> bool:
+        return True
+    
+    def get_property(self, name: str) -> HValue:
+        """获取属性值"""
+        if name in self.value:
+            prop_value = self.value[name]
+            if isinstance(prop_value, HValue):
+                return prop_value
+            return from_python(prop_value)
+        return HNull()
+    
+    def set_property(self, name: str, value: HValue):
+        """设置属性值"""
+        self.value[name] = value
+
+
 class HRuntimeError(Exception):
+
     """H语言运行时错误"""
     pass
 
