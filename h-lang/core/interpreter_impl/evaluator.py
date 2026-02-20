@@ -619,21 +619,19 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         if stmt.operator == "truthy":
             condition = stmt.condition.accept(self)
             if not condition.is_truthy():
-                raise AssertionError(stmt.message or "Assertion failed: condition is falsy")
+                raise AssertionError(stmt.message or "Assertion failed")
         
         elif stmt.operator == "not":
             condition = stmt.condition.accept(self)
             if condition.is_truthy():
-                raise AssertionError(stmt.message or "Assertion failed: expected false but got true")
+                raise AssertionError(stmt.message or "Assertion failed: expected false")
         
         elif stmt.operator == "is":
             actual = stmt.condition.accept(self)
             expected = stmt.expected.accept(self)
             if not actual.equals(expected).value:
-                actual_str = actual.to_string()
-                expected_str = expected.to_string()
                 raise AssertionError(
-                    stmt.message or f"Assertion failed: expected {expected_str}, got {actual_str}"
+                    stmt.message or f"Expected {expected.to_string()}, got {actual.to_string()}"
                 )
         
         elif stmt.operator == "contains":
@@ -649,13 +647,58 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
                     break
             
             if not found:
-                item_str = item.to_string()
                 raise AssertionError(
-                    stmt.message or f"Assertion failed: list does not contain {item_str}"
+                    stmt.message or f"List does not contain {item.to_string()}"
                 )
+
+    def visit_class_definition(self, stmt: ClassDefinition):
+        """执行类定义语句"""
+        # 创建类实例并存储在环境中
+        class_instance = {
+            'type': stmt.class_type,
+            'name': stmt.name,
+            'extends': stmt.extends,
+            'properties': {},
+            'methods': stmt.methods,
+            'event_handlers': stmt.event_handlers
+        }
+        
+        # 评估所有属性
+        for prop_name, prop_expr in stmt.properties.items():
+            class_instance['properties'][prop_name] = prop_expr.accept(self)
+        
+        # 存储类定义
+        self.env.define(stmt.name, from_python(class_instance))
+        return HNull()
+
+    def visit_event_handler(self, stmt: EventHandler):
+        """执行事件处理器"""
+        # 事件处理器在类定义时注册，这里不需要执行
+        # 实际的事件触发由游戏框架处理
+        return HNull()
+
+    def visit_dialog_statement(self, stmt: DialogStatement):
+        """执行对话语句"""
+        speaker = stmt.speaker.accept(self)
+        text = stmt.text.accept(self)
+        
+        # 输出对话
+        self.output_buffer.append(f"{speaker.to_string()}: {text.to_string()}")
+        
+        # 显示选项
+        for i, (option_text, target) in enumerate(stmt.options, 1):
+            self.output_buffer.append(f"  {i}. {option_text}")
+        
+        return HNull()
+
+    def visit_exit_definition(self, stmt: ExitDefinition):
+        """执行出口定义"""
+        # 出口定义在类定义时处理，这里不需要执行
+        return HNull()
 
     
     def get_output(self) -> List[str]:
+
         """获取输出缓冲区内容"""
         return self.output_buffer.copy()
     

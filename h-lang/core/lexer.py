@@ -23,12 +23,14 @@ class TokenType(Enum):
     # 关键字
     ADD = auto()              # add
     AND = auto()
-    ASSERT = auto()           # assert
     BY = auto()
+    CHARACTER = auto()        # character
     CONTAINS = auto()
+    DIALOG = auto()           # dialog
     ELSE = auto()
     END = auto()
     EVERY = auto()
+    EXTENDS = auto()          # extends
     FALSE = auto()
     FOR = auto()
     FROM = auto()
@@ -36,6 +38,7 @@ class TokenType(Enum):
     HAS = auto()
     IF = auto()
     IN = auto()
+    ITEM = auto()             # item
     DECREASE = auto()
     INCREASE = auto()
     IS = auto()
@@ -46,14 +49,14 @@ class TokenType(Enum):
     ON = auto()
     OR = auto()
     PARALLEL = auto()         # parallel
-    PERFORM = auto()          # perform
+    PERFORM = auto()            # perform
     REMOVE = auto()
+    ROOM = auto()             # room
     RUN = auto()
     SECONDS = auto()          # seconds
     SET = auto()
     START = auto()
     STOP = auto()
-    TEST = auto()             # test
     THIS = auto()
     TIMER = auto()
     TO = auto()
@@ -69,6 +72,10 @@ class TokenType(Enum):
     ASK = auto()              # ask
     AS = auto()               # as
     ECHO = auto()             # echo
+    
+    # 测试框架关键字
+    TEST = auto()             # test
+    ASSERT = auto()           # assert
 
     
     # 运算符
@@ -124,12 +131,14 @@ class Token:
 KEYWORDS = {
     'add': TokenType.ADD,
     'and': TokenType.AND,
-    'assert': TokenType.ASSERT,
     'by': TokenType.BY,
+    'character': TokenType.CHARACTER,
     'contains': TokenType.CONTAINS,
+    'dialog': TokenType.DIALOG,
     'else': TokenType.ELSE,
     'end': TokenType.END,
     'every': TokenType.EVERY,
+    'extends': TokenType.EXTENDS,
     'false': TokenType.FALSE,
     'for': TokenType.FOR,
     'from': TokenType.FROM,
@@ -137,8 +146,9 @@ KEYWORDS = {
     'has': TokenType.HAS,
     'if': TokenType.IF,
     'in': TokenType.IN,
-    'increase': TokenType.INCREASE,
+    'item': TokenType.ITEM,
     'decrease': TokenType.DECREASE,
+    'increase': TokenType.INCREASE,
     'is': TokenType.IS,
     'minutes': TokenType.MINUTES,
     'move': TokenType.MOVE,
@@ -149,12 +159,12 @@ KEYWORDS = {
     'parallel': TokenType.PARALLEL,
     'perform': TokenType.PERFORM,
     'remove': TokenType.REMOVE,
+    'room': TokenType.ROOM,
     'run': TokenType.RUN,
     'seconds': TokenType.SECONDS,
     'set': TokenType.SET,
     'start': TokenType.START,
     'stop': TokenType.STOP,
-    'test': TokenType.TEST,
     'this': TokenType.THIS,
     'timer': TokenType.TIMER,
     'to': TokenType.TO,
@@ -168,6 +178,8 @@ KEYWORDS = {
     'ask': TokenType.ASK,
     'as': TokenType.AS,
     'echo': TokenType.ECHO,
+    'test': TokenType.TEST,
+    'assert': TokenType.ASSERT,
 }
 
 

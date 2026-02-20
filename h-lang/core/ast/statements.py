@@ -5,8 +5,9 @@ AST Statements
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 from .expressions import Expression
+
 
 
 class Statement(ABC):
@@ -406,9 +407,9 @@ class AssertStatement(Statement):
     assert list contains item
     """
     condition: Expression
-    expected: Optional[Expression] = None  # 用于 assert ... is ...
-    operator: str = "truthy"  # "truthy", "not", "is", "contains"
-    message: str = ""
+    operator: str  # "truthy", "not", "is", "contains"
+    expected: Optional[Expression] = None  # 用于 is 和 contains
+    message: Optional[str] = None  # 可选的错误消息
     
     def accept(self, visitor):
         return visitor.visit_assert_statement(self)
@@ -421,6 +422,108 @@ class AssertStatement(Statement):
         elif self.operator == "not":
             return f"AssertStatement(not {self.condition})"
         return f"AssertStatement({self.condition})"
+
+
+# ==================== 游戏框架 - 类定义 ====================
+
+@dataclass
+class ClassDefinition(Statement):
+    """
+    类定义语句（Room, Item, Character等）
+    例如:
+    room Kitchen:
+        description: "A cozy kitchen"
+        
+    item Sword extends Weapon:
+        damage: 10
+        
+    character Goblin extends Enemy:
+        health: 50
+    """
+    class_type: str  # "room", "item", "character"
+    name: str
+    extends: Optional[str] = None  # 父类名
+    properties: Dict[str, Expression] = field(default_factory=dict)
+    methods: Dict[str, 'FunctionDefinition'] = field(default_factory=dict)
+    event_handlers: List['EventHandler'] = field(default_factory=list)
+    
+    def accept(self, visitor):
+        return visitor.visit_class_definition(self)
+    
+    def __repr__(self):
+        extends_str = f" extends {self.extends}" if self.extends else ""
+        return f"ClassDefinition({self.class_type} {self.name}{extends_str})"
+
+
+@dataclass
+class EventHandler(Statement):
+    """
+    事件处理器
+    例如:
+    on action: player uses item:
+        // 处理代码
+        
+    on state: health is 0:
+        // 处理代码
+        
+    on timer: bomb expires:
+        // 处理代码
+        
+    on event: random_encounter:
+        // 处理代码
+    """
+    event_type: str  # "action", "state", "timer", "event", "game_start", "every_turn"
+    condition: Optional[Expression] = None  # 触发条件
+    action: Optional[str] = None  # 动作名称（用于action类型）
+    body: List[Statement] = field(default_factory=list)
+    
+    def accept(self, visitor):
+        return visitor.visit_event_handler(self)
+    
+    def __repr__(self):
+        return f"EventHandler({self.event_type})"
+
+
+@dataclass
+class DialogStatement(Statement):
+    """
+    对话系统语句
+    例如:
+    dialog npc "Hello, adventurer!":
+        option "Buy potion" -> buy_potion
+        option "Leave" -> end_dialog
+    """
+    speaker: Expression
+    text: Expression
+    options: List[Tuple[str, str]] = field(default_factory=list)  # [(显示文本, 跳转目标), ...]
+    
+    def accept(self, visitor):
+        return visitor.visit_dialog_statement(self)
+    
+    def __repr__(self):
+        return f"DialogStatement({self.speaker}: {self.text})"
+
+
+@dataclass
+class ExitDefinition(Statement):
+    """
+    出口定义（带条件）
+    例如:
+    exit north to Garden
+    exit east to Dungeon if has_key
+    """
+    direction: str
+    target_room: str
+    condition: Optional[Expression] = None  # 条件表达式
+    
+    def accept(self, visitor):
+        return visitor.visit_exit_definition(self)
+    
+    def __repr__(self):
+        if self.condition:
+            return f"ExitDefinition({self.direction} to {self.target_room} if {self.condition})"
+        return f"ExitDefinition({self.direction} to {self.target_room})"
+
 
 
 # ==================== 程序根节点 ====================

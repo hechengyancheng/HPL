@@ -453,13 +453,143 @@ class Parser:
     
     def parallel_statement(self) -> ParallelStatement:
         """
-        解析并行语句: run in parallel: <block>
+        解析并行执行语句: run in parallel: ...
         """
-        self.consume(TokenType.IN, "Expected 'in' after 'run'")
-        self.consume(TokenType.PARALLEL, "Expected 'parallel' after 'in'")
-        self.consume(TokenType.COLON, "Expected ':' after 'parallel'")
+        self.consume(TokenType.COLON, "Expected ':' after 'run in parallel'")
+        self.consume(TokenType.NEWLINE, "Expected newline after 'run in parallel:'")
+        
         body = self.block()
         return ParallelStatement(body)
+
+    def class_definition(self, class_type: str) -> ClassDefinition:
+        """
+        解析类定义: room Name:, item Name extends Parent:, character Name:
+        """
+        name = self.consume(TokenType.IDENTIFIER, f"Expected {class_type} name").value
+        
+        extends = None
+        if self.match(TokenType.EXTENDS):
+            extends = self.consume(TokenType.IDENTIFIER, "Expected parent class name").value
+        
+        self.consume(TokenType.COLON, f"Expected ':' after {class_type} name")
+        self.consume(TokenType.NEWLINE, f"Expected newline after {class_type} name:")
+        
+        properties = {}
+        methods = {}
+        event_handlers = []
+        
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.check(TokenType.IDENTIFIER):
+                prop_name = self.advance().value
+                
+                if self.check(TokenType.COLON):
+                    # Property definition: property_name: value
+                    self.advance()  # consume :
+                    properties[prop_name] = self.expression()
+                    if self.check(TokenType.NEWLINE):
+                        self.advance()
+                elif self.check(TokenType.LPAREN):
+                    # Method definition
+                    methods[prop_name] = self.finish_function_definition(prop_name)
+                else:
+                    # Simple property without value
+                    properties[prop_name] = Literal(None)
+            elif self.check(TokenType.ON):
+                # Event handler
+                event_handlers.append(self.event_handler())
+            else:
+                break
+        
+        return ClassDefinition(class_type, name, extends, properties, methods, event_handlers)
+    
+    def event_handler(self) -> EventHandler:
+        """
+        解析事件处理器: on action: player uses item:, on state: health is 0:, etc.
+        """
+        self.advance()  # consume 'on'
+        
+        event_type = self.consume(TokenType.IDENTIFIER, "Expected event type").value
+        
+        condition = None
+        action = None
+        
+        if event_type == "action":
+            # on action: player uses item:
+            self.consume(TokenType.COLON, "Expected ':' after 'action'")
+            # Parse action description
+            if self.check(TokenType.IDENTIFIER):
+                action_parts = []
+                while not self.check(TokenType.COLON) and not self.is_at_end():
+                    action_parts.append(self.advance().value)
+                action = " ".join(action_parts)
+        
+        elif event_type in ["state", "timer", "event"]:
+            # on state: condition:, on timer: name expires:, on event: name:
+            self.consume(TokenType.COLON, f"Expected ':' after '{event_type}'")
+            if not self.check(TokenType.NEWLINE):
+                condition = self.expression()
+        
+        elif event_type == "game":
+            # on game start:
+            if self.match(TokenType.IDENTIFIER):
+                start_word = self.previous().value
+                if start_word == "start":
+                    event_type = "game_start"
+        
+        elif event_type == "every":
+            # on every turn:
+            if self.match(TokenType.IDENTIFIER):
+                turn_word = self.previous().value
+                if turn_word == "turn":
+                    event_type = "every_turn"
+        
+        self.consume(TokenType.COLON, "Expected ':' after event specification")
+        self.consume(TokenType.NEWLINE, "Expected newline after event specification")
+        
+        body = self.block()
+        return EventHandler(event_type, condition, action, body)
+    
+    def dialog_statement(self) -> DialogStatement:
+        """
+        解析对话语句: dialog speaker "text": ...
+        """
+        speaker = self.expression()
+        text = self.expression()
+        
+        self.consume(TokenType.COLON, "Expected ':' after dialog text")
+        self.consume(TokenType.NEWLINE, "Expected newline after dialog text:")
+        
+        options = []
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.match(TokenType.IDENTIFIER):
+                if self.previous().value == "option":
+                    option_text = self.consume(TokenType.STRING, "Expected option text").value
+                    self.consume(TokenType.ARROW, "Expected '->' after option text")
+                    target = self.consume(TokenType.IDENTIFIER, "Expected target label").value
+                    options.append((option_text, target))
+                    if self.check(TokenType.NEWLINE):
+                        self.advance()
+        
+        return DialogStatement(speaker, text, options)
+    
+    def exit_definition(self) -> ExitDefinition:
+        """
+        解析出口定义: exit direction to Room [if condition]
+        """
+        direction = self.consume(TokenType.IDENTIFIER, "Expected direction").value
+        
+        self.consume(TokenType.TO, "Expected 'to' after direction")
+        target_room = self.consume(TokenType.IDENTIFIER, "Expected room name").value
+        
+        condition = None
+        if self.match(TokenType.IF):
+            condition = self.expression()
+        
+        if self.check(TokenType.NEWLINE):
+            self.advance()
+        
+        return ExitDefinition(direction, target_room, condition)
+
     
     def test_statement(self) -> TestStatement:
         """
@@ -486,7 +616,7 @@ class Parser:
         if self.match(TokenType.NOT):
             # assert not <condition>
             condition = self.expression()
-            return AssertStatement(condition, operator="not", message="Assertion failed: expected false")
+            return AssertStatement(condition, operator="not", expected=None, message="Assertion failed: expected false")
         
         # 解析条件表达式
         condition = self.expression()
@@ -494,15 +624,16 @@ class Parser:
         # 检查是否是 assert ... is ...
         if self.match(TokenType.IS):
             expected = self.expression()
-            return AssertStatement(condition, expected, operator="is", message="Assertion failed: values not equal")
+            return AssertStatement(condition, operator="is", expected=expected, message="Assertion failed: values not equal")
         
         # 检查是否是 assert ... contains ...
         if self.match(TokenType.CONTAINS):
             item = self.expression()
-            return AssertStatement(condition, item, operator="contains", message="Assertion failed: list does not contain item")
+            return AssertStatement(condition, operator="contains", expected=item, message="Assertion failed: list does not contain item")
         
         # 简单断言: assert <condition>
-        return AssertStatement(condition, operator="truthy", message="Assertion failed: condition is falsy")
+        return AssertStatement(condition, operator="truthy", expected=None, message="Assertion failed: condition is falsy")
+
 
     
     def block(self) -> List[Statement]:
