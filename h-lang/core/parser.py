@@ -484,11 +484,20 @@ class Parser:
         self.consume(TokenType.COLON, f"Expected ':' after {class_type} name")
         self.consume(TokenType.NEWLINE, f"Expected newline after {class_type} name:")
         
+        # 期望INDENT
+        if not self.check(TokenType.INDENT):
+            raise ParseError("Expected indented block for class definition", self.peek())
+        self.advance()  # consume INDENT
+        
         properties = {}
         methods = {}
         event_handlers = []
         
         while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.check(TokenType.NEWLINE):
+                self.advance()
+                continue
+            
             if self.check(TokenType.IDENTIFIER):
                 prop_name = self.advance().value
                 
@@ -507,10 +516,23 @@ class Parser:
             elif self.check(TokenType.ON):
                 # Event handler
                 event_handlers.append(self.event_handler())
+            elif self.check(TokenType.EXIT):
+                # Exit definition
+                self.advance()  # consume 'exit'
+                # Handle exit definition if needed
+            elif self.check(TokenType.DIALOG):
+                # Dialog statement
+                self.advance()  # consume 'dialog'
+                # Handle dialog if needed
             else:
                 break
         
+        # 消耗DEDENT
+        if self.check(TokenType.DEDENT):
+            self.advance()
+        
         return ClassDefinition(class_type, name, extends, properties, methods, event_handlers)
+
     
     def event_handler(self) -> EventHandler:
         """
@@ -569,18 +591,33 @@ class Parser:
         self.consume(TokenType.COLON, "Expected ':' after dialog text")
         self.consume(TokenType.NEWLINE, "Expected newline after dialog text:")
         
+        # 期望INDENT
+        if not self.check(TokenType.INDENT):
+            raise ParseError("Expected indented block for dialog options", self.peek())
+        self.advance()  # consume INDENT
+        
         options = []
         while not self.check(TokenType.DEDENT) and not self.is_at_end():
-            if self.match(TokenType.IDENTIFIER):
-                if self.previous().value == "option":
-                    option_text = self.consume(TokenType.STRING, "Expected option text").value
-                    self.consume(TokenType.ARROW, "Expected '->' after option text")
-                    target = self.consume(TokenType.IDENTIFIER, "Expected target label").value
-                    options.append((option_text, target))
-                    if self.check(TokenType.NEWLINE):
-                        self.advance()
+            if self.check(TokenType.NEWLINE):
+                self.advance()
+                continue
+            
+            if self.match(TokenType.OPTION):
+                option_text = self.consume(TokenType.STRING, "Expected option text").value
+                self.consume(TokenType.ARROW, "Expected '->' after option text")
+                target = self.consume(TokenType.IDENTIFIER, "Expected target label").value
+                options.append((option_text, target))
+                if self.check(TokenType.NEWLINE):
+                    self.advance()
+            else:
+                break
+        
+        # 消耗DEDENT
+        if self.check(TokenType.DEDENT):
+            self.advance()
         
         return DialogStatement(speaker, text, options)
+
     
     def exit_definition(self) -> ExitDefinition:
         """

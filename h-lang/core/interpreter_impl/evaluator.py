@@ -601,10 +601,22 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     
     def visit_start_timer_statement(self, stmt: StartTimerStatement):
         """执行启动计时器语句"""
-        name = stmt.name.accept(self)
+        # 如果name是标识符，直接使用其名称作为字符串
+        if isinstance(stmt.name, Identifier):
+            name = HString(stmt.name.name)
+        else:
+            # 否则求值获取结果
+            name_value = stmt.name.accept(self)
+            if isinstance(name_value, HString):
+                name = name_value
+            else:
+                name = HString(str(name_value.value) if hasattr(name_value, 'value') else str(name_value))
+        
         duration = stmt.duration.accept(self)
         unit = HString(stmt.unit) if stmt.unit else HString("seconds")
         self.stdlib_actions.start_timer(name, duration, unit)
+
+
     
     def visit_stop_timer_statement(self, stmt: StopTimerStatement):
         """执行停止计时器语句"""

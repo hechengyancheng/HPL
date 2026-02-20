@@ -30,6 +30,7 @@ class TokenType(Enum):
     ELSE = auto()
     END = auto()
     EVERY = auto()
+    EXIT = auto()             # exit
     EXTENDS = auto()          # extends
     FALSE = auto()
     FOR = auto()
@@ -39,6 +40,7 @@ class TokenType(Enum):
     IF = auto()
     IN = auto()
     ITEM = auto()             # item
+
     DECREASE = auto()
     INCREASE = auto()
     IS = auto()
@@ -47,8 +49,10 @@ class TokenType(Enum):
     NOT = auto()
     NULL_KEYWORD = auto()
     ON = auto()
+    OPTION = auto()           # option
     OR = auto()
     PARALLEL = auto()         # parallel
+
     PERFORM = auto()            # perform
     REMOVE = auto()
     ROOM = auto()             # room
@@ -138,8 +142,10 @@ KEYWORDS = {
     'else': TokenType.ELSE,
     'end': TokenType.END,
     'every': TokenType.EVERY,
+    'exit': TokenType.EXIT,
     'extends': TokenType.EXTENDS,
     'false': TokenType.FALSE,
+
     'for': TokenType.FOR,
     'from': TokenType.FROM,
     'game': TokenType.GAME,
@@ -155,8 +161,10 @@ KEYWORDS = {
     'not': TokenType.NOT,
     'null': TokenType.NULL_KEYWORD,
     'on': TokenType.ON,
+    'option': TokenType.OPTION,
     'or': TokenType.OR,
     'parallel': TokenType.PARALLEL,
+
     'perform': TokenType.PERFORM,
     'remove': TokenType.REMOVE,
     'room': TokenType.ROOM,
