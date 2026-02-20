@@ -84,7 +84,8 @@ class Parser:
                 return
             if self.peek().type in [
                 TokenType.SET, TokenType.IF, TokenType.WHILE,
-                TokenType.FUNCTION, TokenType.RETURN, TokenType.FOR
+                TokenType.FUNCTION, TokenType.RETURN, TokenType.FOR,
+                TokenType.TEST, TokenType.ASSERT
             ]:
                 return
             self.advance()
@@ -189,6 +190,12 @@ class Parser:
         
         if self.match(TokenType.RUN):
             return self.parallel_statement()
+        
+        if self.match(TokenType.TEST):
+            return self.test_statement()
+        
+        if self.match(TokenType.ASSERT):
+            return self.assert_statement()
         
         if self.match(TokenType.FOR):
             # 简化处理：for循环
@@ -453,6 +460,49 @@ class Parser:
         self.consume(TokenType.COLON, "Expected ':' after 'parallel'")
         body = self.block()
         return ParallelStatement(body)
+    
+    def test_statement(self) -> TestStatement:
+        """
+        解析测试语句: test "name": ...
+        """
+        # 解析测试名称（字符串）
+        name_token = self.consume(TokenType.STRING, "Expected test name (string)")
+        name = name_token.value
+        
+        self.consume(TokenType.COLON, "Expected ':' after test name")
+        body = self.block()
+        
+        return TestStatement(name, body)
+    
+    def assert_statement(self) -> AssertStatement:
+        """
+        解析断言语句:
+        - assert <condition>
+        - assert not <condition>
+        - assert <value> is <expected>
+        - assert <list> contains <item>
+        """
+        # 检查各种断言形式
+        if self.match(TokenType.NOT):
+            # assert not <condition>
+            condition = self.expression()
+            return AssertStatement(condition, operator="not", message="Assertion failed: expected false")
+        
+        # 解析条件表达式
+        condition = self.expression()
+        
+        # 检查是否是 assert ... is ...
+        if self.match(TokenType.IS):
+            expected = self.expression()
+            return AssertStatement(condition, expected, operator="is", message="Assertion failed: values not equal")
+        
+        # 检查是否是 assert ... contains ...
+        if self.match(TokenType.CONTAINS):
+            item = self.expression()
+            return AssertStatement(condition, item, operator="contains", message="Assertion failed: list does not contain item")
+        
+        # 简单断言: assert <condition>
+        return AssertStatement(condition, operator="truthy", message="Assertion failed: condition is falsy")
 
     
     def block(self) -> List[Statement]:
@@ -774,6 +824,13 @@ function sum(a, b):
 
 set result to sum(10, 20)
 ask "What is your name?" as userName
+
+// 测试框架
+test "basic arithmetic":
+    set x to 10
+    assert x is 10
+    assert not (x is 5)
+    assert [1, 2, 3] contains 2
 '''
     
     try:

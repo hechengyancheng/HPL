@@ -4,7 +4,8 @@ H语言环境（作用域）管理
 """
 
 from typing import Dict, Optional, Any
-from ..types.primitive import HValue, HNull
+from ..hl_types.primitive import HValue, HNull
+
 
 
 class Environment:

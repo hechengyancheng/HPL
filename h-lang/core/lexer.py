@@ -23,6 +23,7 @@ class TokenType(Enum):
     # 关键字
     ADD = auto()              # add
     AND = auto()
+    ASSERT = auto()           # assert
     BY = auto()
     CONTAINS = auto()
     ELSE = auto()
@@ -45,14 +46,14 @@ class TokenType(Enum):
     ON = auto()
     OR = auto()
     PARALLEL = auto()         # parallel
-    PERFORM = auto()            # perform
+    PERFORM = auto()          # perform
     REMOVE = auto()
-
     RUN = auto()
     SECONDS = auto()          # seconds
     SET = auto()
     START = auto()
     STOP = auto()
+    TEST = auto()             # test
     THIS = auto()
     TIMER = auto()
     TO = auto()
@@ -123,6 +124,7 @@ class Token:
 KEYWORDS = {
     'add': TokenType.ADD,
     'and': TokenType.AND,
+    'assert': TokenType.ASSERT,
     'by': TokenType.BY,
     'contains': TokenType.CONTAINS,
     'else': TokenType.ELSE,
@@ -147,12 +149,12 @@ KEYWORDS = {
     'parallel': TokenType.PARALLEL,
     'perform': TokenType.PERFORM,
     'remove': TokenType.REMOVE,
-
     'run': TokenType.RUN,
     'seconds': TokenType.SECONDS,
     'set': TokenType.SET,
     'start': TokenType.START,
     'stop': TokenType.STOP,
+    'test': TokenType.TEST,
     'this': TokenType.THIS,
     'timer': TokenType.TIMER,
     'to': TokenType.TO,

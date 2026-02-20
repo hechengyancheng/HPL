@@ -6,11 +6,13 @@ H语言求值器 - 执行AST
 from typing import Any, Dict, List, Optional
 from ..ast.expressions import *
 from ..ast.statements import *
-from ..types.primitive import *
-from ..types.operations import Operations, COMPARISON_OPERATORS
+from ..hl_types.primitive import *
+from ..hl_types.operations import Operations, COMPARISON_OPERATORS
+
 from .environment import Environment
 from .control_flow import ReturnException, HRuntimeError, EndGameException
-from ..stdlib.actions import StdlibActions, ActionContext
+from ...stdlib.actions import StdlibActions, ActionContext
+
 
 
 class Evaluator(ExpressionVisitor, StatementVisitor):
@@ -32,6 +34,10 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         # 标准库动作上下文
         self.action_context = ActionContext()
         self.stdlib_actions = StdlibActions(self.action_context)
+        
+        # 测试结果跟踪
+        self.test_results: List[Dict[str, Any]] = []
+        self.current_test: Optional[str] = None
         
         self._register_builtins()
     
@@ -561,35 +567,73 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     
     def visit_test_statement(self, stmt: TestStatement):
         """执行测试语句"""
-        # 测试框架实现
-        print(f"Running test: {stmt.name}")
+        # 设置当前测试名称
+        previous_test = self.current_test
+        self.current_test = stmt.name
+        
+        # 记录测试结果
+        test_result = {
+            'name': stmt.name,
+            'passed': True,
+            'errors': []
+        }
+        
+        # 输出测试开始信息
+        output_msg = f"\nRunning test: {stmt.name}"
+        self.output_buffer.append(output_msg)
+        self.stdlib_actions.echo(HString(output_msg))
+        
         try:
+            # 执行测试体
             for s in stmt.body:
                 s.accept(self)
-            print(f"  ✓ Test '{stmt.name}' passed")
+            
+            # 测试通过
+            success_msg = f"  ✓ Test '{stmt.name}' passed"
+            self.output_buffer.append(success_msg)
+            self.stdlib_actions.echo(HString(success_msg))
+            
         except AssertionError as e:
-            print(f"  ✗ Test '{stmt.name}' failed: {e}")
+            # 测试失败（断言失败）
+            test_result['passed'] = False
+            test_result['errors'].append(str(e))
+            fail_msg = f"  ✗ Test '{stmt.name}' failed: {e}"
+            self.output_buffer.append(fail_msg)
+            self.stdlib_actions.echo(HString(fail_msg))
+            
         except Exception as e:
-            print(f"  ✗ Test '{stmt.name}' error: {e}")
+            # 测试错误（运行时错误）
+            test_result['passed'] = False
+            test_result['errors'].append(f"Runtime error: {str(e)}")
+            error_msg = f"  ✗ Test '{stmt.name}' error: {e}"
+            self.output_buffer.append(error_msg)
+            self.stdlib_actions.echo(HString(error_msg))
+        
+        finally:
+            # 恢复之前的测试上下文
+            self.current_test = previous_test
+            self.test_results.append(test_result)
     
     def visit_assert_statement(self, stmt: AssertStatement):
         """执行断言语句"""
         if stmt.operator == "truthy":
             condition = stmt.condition.accept(self)
             if not condition.is_truthy():
-                raise AssertionError(stmt.message or "Assertion failed")
+                raise AssertionError(stmt.message or "Assertion failed: condition is falsy")
         
         elif stmt.operator == "not":
             condition = stmt.condition.accept(self)
             if condition.is_truthy():
-                raise AssertionError(stmt.message or "Assertion failed: expected false")
+                raise AssertionError(stmt.message or "Assertion failed: expected false but got true")
         
         elif stmt.operator == "is":
             actual = stmt.condition.accept(self)
             expected = stmt.expected.accept(self)
             if not actual.equals(expected).value:
+                actual_str = actual.to_string()
+                expected_str = expected.to_string()
                 raise AssertionError(
-                    stmt.message or f"Expected {expected.to_string()}, got {actual.to_string()}"
+                    stmt.message or f"Assertion failed: expected {expected_str}, got {actual_str}"
                 )
         
         elif stmt.operator == "contains":
@@ -605,8 +649,9 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
                     break
             
             if not found:
+                item_str = item.to_string()
                 raise AssertionError(
-                    stmt.message or f"List does not contain {item.to_string()}"
+                    stmt.message or f"Assertion failed: list does not contain {item_str}"
                 )
 
     
@@ -617,6 +662,10 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     def clear_output(self):
         """清空输出缓冲区"""
         self.output_buffer.clear()
+    
+    def get_test_results(self) -> List[Dict[str, Any]]:
+        """获取所有测试结果"""
+        return self.test_results.copy()
 
 
 # 便捷函数
@@ -647,13 +696,28 @@ function greet(name):
     echo "Hello, " + name
 
 greet("World")
+
+// 测试框架示例
+test "basic arithmetic":
+    set a to 5
+    set b to 3
+    set result to a + b
+    assert result is 8
+    assert not (result is 10)
+    assert [1, 2, 3, 4, 5] contains 3
+
+test "string operations":
+    set msg to "hello"
+    assert msg is "hello"
+    assert not (msg is "world")
 '''
     
     try:
         program = parse(test_code)
         evaluator = Evaluator()
         evaluator.evaluate(program)
-        print(f"\\n输出缓冲区: {evaluator.get_output()}")
+        print(f"\n输出缓冲区: {evaluator.get_output()}")
+        print(f"\n测试结果: {evaluator.get_test_results()}")
     except Exception as e:
         print(f"错误: {e}")
         import traceback

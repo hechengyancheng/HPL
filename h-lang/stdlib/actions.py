@@ -6,8 +6,11 @@ H语言标准库动作指令实现
 import time
 import threading
 from typing import Any, Dict, List, Optional, Callable
-from ..types.primitive import *
-from ..interpreter_impl.control_flow import HRuntimeError, EndGameException
+from ..core.hl_types.primitive import *
+
+from ..core.interpreter_impl.control_flow import HRuntimeError, EndGameException
+
+
 
 
 class OutputHandler:

@@ -6,8 +6,10 @@ H语言内置函数库
 import random
 import math
 from typing import Callable, Dict, List, Any
-from ..types.primitive import *
-from ..types.operations import Operations
+from ..core.hl_types.primitive import *
+
+from ..core.hl_types.operations import Operations
+
 
 
 class Builtins:

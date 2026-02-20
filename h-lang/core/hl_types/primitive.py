@@ -43,6 +43,13 @@ class HValue(ABC):
         if not isinstance(other, HValue):
             return False
         return self.value == other.value
+    
+    def equals(self, other: 'HValue') -> 'HBoolean':
+        """比较两个值是否相等，返回HBoolean"""
+        if not isinstance(other, HValue):
+            return HBoolean(False)
+        return HBoolean(self.value == other.value)
+
 
 
 class HNumber(HValue):

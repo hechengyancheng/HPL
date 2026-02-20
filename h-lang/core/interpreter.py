@@ -11,7 +11,10 @@ from .ast.statements import Program
 from .interpreter_impl.environment import Environment
 from .interpreter_impl.evaluator import Evaluator
 from .interpreter_impl.control_flow import HRuntimeError
-from .stdlib.builtins import Builtins
+from ..stdlib.builtins import Builtins
+
+from .hl_types.primitive import from_python, to_python
+
 
 
 class HLangInterpreter:
@@ -104,7 +107,6 @@ class HLangInterpreter:
         """
         设置变量值（用于与Python交互）
         """
-        from .types.primitive import from_python
         h_value = from_python(value)
         self.environment.define(name, h_value)
     
@@ -112,9 +114,9 @@ class HLangInterpreter:
         """
         获取变量值（用于与Python交互）
         """
-        from .types.primitive import to_python
         h_value = self.environment.get(name)
         return to_python(h_value)
+
 
 
 # 便捷函数
