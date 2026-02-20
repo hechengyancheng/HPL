@@ -197,9 +197,19 @@ class Parser:
         if self.match(TokenType.ASSERT):
             return self.assert_statement()
         
+        if self.match(TokenType.ROOM):
+            return self.class_definition("room")
+        
+        if self.match(TokenType.ITEM):
+            return self.class_definition("item")
+        
+        if self.match(TokenType.CHARACTER):
+            return self.class_definition("character")
+        
         if self.match(TokenType.FOR):
             # 简化处理：for循环
             pass
+
         
         # 表达式语句
         expr = self.expression()

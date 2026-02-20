@@ -11,7 +11,17 @@ from ..hl_types.operations import Operations, COMPARISON_OPERATORS
 
 from .environment import Environment
 from .control_flow import ReturnException, HRuntimeError, EndGameException
-from ...stdlib.actions import StdlibActions, ActionContext
+
+# Import stdlib actions - handle both module and package execution
+try:
+    from ...stdlib.actions import StdlibActions, ActionContext
+except ImportError:
+    # When running as script or in different context
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+    from stdlib.actions import StdlibActions, ActionContext
+
 
 
 
