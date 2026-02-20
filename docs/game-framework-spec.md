@@ -92,17 +92,17 @@ Item magic_chest:
     
     on opens:
         if this.isLocked:
-            say "The chest is magically sealed."
+            echo "The chest is magically sealed."
         else:
-            say "The chest opens with a soft glow."
+            echo "The chest opens with a soft glow."
             set this.isOpen to true
     
     on uses magic_key:
         if player has magic_key:
             set this.isLocked to false
-            say "The key fits perfectly. The seal breaks!"
+            echo "The key fits perfectly. The seal breaks!"
         else:
-            say "You need a magic key to open this."
+            echo "You need a magic key to open this."
 ```
 
 ### 2.3 角色（Character）
@@ -127,9 +127,96 @@ Character old_merchant:
 
 ---
 
-## 三、事件系统
+## 三、继承与扩展机制
 
-### 3.1 事件监听
+### 3.1 类型继承
+
+H-Game 支持通过 `extends` 关键字实现类型继承，允许创建基于现有类型的特化版本。
+
+**语法：**
+
+```h
+Item <标识符> extends <父类型>:
+    <新增或覆盖的属性>
+    
+    on <动词>:
+        <语句块>
+```
+
+### 3.2 继承规则
+
+- **属性继承**：子类型自动继承父类型的所有属性
+- **属性覆盖**：子类型可以重新定义父类型的属性
+- **处理器继承**：父类型的 `on` 处理器对子类型有效
+- **处理器覆盖**：子类型可以定义同名处理器来覆盖父类行为
+- **多态性**：子类型实例可以出现在任何需要父类型的地方
+
+### 3.3 继承示例
+
+**定义可锁定物品基类：**
+
+```h
+Item lockable_container:
+    description is "A container that can be locked."
+    isLocked is false
+    isOpen is false
+    
+    on opens:
+        if this.isLocked:
+            echo "It's locked."
+        else:
+            set this.isOpen to true
+            echo "You open it."
+    
+    on closes:
+        set this.isOpen to false
+        echo "You close it."
+    
+    on uses key:
+        if this.isLocked:
+            set this.isLocked to false
+            echo "You unlock it."
+        else:
+            set this.isLocked to true
+            echo "You lock it."
+```
+
+**创建继承的子类型：**
+
+```h
+Item treasure_chest extends lockable_container:
+    description is "A heavy chest reinforced with iron bands."
+    contents is [gold_coins, magic_scroll]
+    isLocked is true
+    
+    on opens:
+        // 先调用父类逻辑（隐式）
+        if this.isOpen:
+            echo "The chest creaks open, revealing glittering treasure!"
+            increase $score by 50
+```
+
+### 3.4 多重继承（Mixin 模式）
+
+支持从多个父类型继承特性：
+
+```h
+Item magic_lockbox extends lockable_container, magic_item:
+    description is "A box that is both locked and magical."
+    // 继承 lockable_container 的锁定机制
+    // 继承 magic_item 的魔法属性
+```
+
+---
+
+## 四、复合动作系统
+
+
+---
+
+## 五、事件系统
+
+### 5.1 事件监听
 
 所有事件使用统一的 `on` 关键字声明：
 
@@ -138,7 +225,8 @@ on <事件类型>: <触发条件>:
     <语句块>
 ```
 
-### 3.2 事件类型
+
+### 5.2 事件类型
 
 | 类型 | 语法 | 触发时机 |
 |------|------|----------|
@@ -148,7 +236,73 @@ on <事件类型>: <触发条件>:
 | 计时器 | `on timer: <标识符> expires` | 计时器到期时 |
 | 随机事件 | `on event: <标识符>` | 按概率触发 |
 
-### 3.3 事件处理示例
+### 5.3 复合动作语法详解
+
+复合动作允许玩家使用一个物品作用于另一个目标，形成 `verb + instrument + target` 的完整交互模式。
+
+**基本语法：**
+
+```h
+on action: player <动词> <工具> [on|with|at|to] <目标>:
+    <语句块>
+```
+
+**介词别名：**
+
+| 介词 | 适用场景 |
+|------|----------|
+| `on` | 作用于表面（uses key on door） |
+| `with` | 配合使用（attacks with sword） |
+| `at` | 指向目标（throws rock at window） |
+| `to` | 给予/连接（gives potion to ally） |
+
+**完整示例：**
+
+```h
+Item sword:
+    description is "A sharp steel blade."
+    
+    on attacks with this at enemy:
+        set damage to calculateDamage(player.strength, this.sharpness)
+        decrease enemy.health by damage
+        echo "You slash the enemy for " + damage + " damage!"
+        
+        if enemy.health is less than or equal to 0:
+            echo "The enemy falls!"
+            set enemy.isAlive to false
+
+Item healing_potion:
+    description is "A red liquid that restores health."
+    
+    on uses this on player:
+        increase player.health by 30
+        remove this from player.inventory
+        echo "You feel rejuvenated!"
+    
+    on gives this to ally:
+        increase ally.health by 30
+        remove this from player.inventory
+        add this to ally.inventory
+        echo "You give the potion to " + ally.name
+```
+
+**动作别名机制：**
+
+允许为同一动作定义多个触发词：
+
+```h
+Item torch:
+    on lights|ignites|kindles this:
+        set this.isLit to true
+        echo "The torch bursts into flame."
+    
+    on extinguishes|puts_out|douses this:
+        set this.isLit to false
+        echo "The torch goes dark."
+```
+
+
+### 5.4 事件处理示例
 
 **玩家动作事件：**
 
@@ -159,47 +313,73 @@ on action: player uses rusty_key on chest:
         set chest.isOpen to true
         set rusty_key.isBroken to true
         increase $score by 10
-        say "The key turns with a snap... and breaks!"
-        say "But the chest swings open."
+        echo "The key turns with a snap... and breaks!"
+        echo "But the chest swings open."
     else:
-        say "The chest is already unlocked."
+        echo "The chest is already unlocked."
 ```
+
 
 **状态变化事件：**
 
 ```h
 on state: hour is 18:
     set weather to "night"
-    say "The sun sets. Darkness falls."
+    echo "The sun sets. Darkness falls."
 
 on state: player.location is "Courtyard" and not player has lantern:
-    say "It's getting dark. You should find a light source."
+    echo "It's getting dark. You should find a light source."
 ```
+
+**复合动作事件：**
+
+```h
+on action: player uses crowbar on sealed_crate:
+    if player.strength is greater than 10:
+        set sealed_crate.isOpen to true
+        echo "You pry open the crate with brute force!"
+    else:
+        echo "You're not strong enough to pry it open."
+        echo "Maybe find another way."
+
+on action: player throws bomb at wall:
+    start timer explosion for 3 seconds
+    echo "The bomb sticks to the wall, ticking ominously..."
+
+on action: player combines glue with broken_statue:
+    remove glue from player.inventory
+    remove broken_statue from player.inventory
+    add repaired_statue to player.inventory
+    echo "You carefully glue the pieces back together."
+```
+
 
 **计时器事件：**
 
 ```h
 on timer: bomb expires:
-    say "BOOM!"
+    echo "BOOM!"
     end game
 ```
+
 
 **随机事件：**
 
 ```h
 on event: random_encounter:
     30% chance:
-        say "A wild wolf appears!"
+        echo "A wild wolf appears!"
         start combat with wolf
     70% chance:
-        say "The path remains clear."
+        echo "The path remains clear."
 ```
 
 ---
 
-## 四、对话系统
+## 六、对话系统
 
-### 4.1 对话树定义
+
+### 6.1 对话树定义
 
 对话树定义角色与玩家之间的分支对话。
 
@@ -216,13 +396,15 @@ dialog <标识符>:
             goto <下一状态>
 ```
 
-### 4.2 选项控制
+
+### 6.2 选项控制
 
 - `requires`：前置条件，不满足时选项不显示
 - `action`：选择后执行的动作
 - `goto`：跳转到的状态
 
-### 4.3 完整对话示例
+### 6.3 完整对话示例
+
 
 ```h
 dialog merchant_dialog:
@@ -278,9 +460,10 @@ dialog merchant_dialog:
 
 ---
 
-## 五、游戏生命周期
+## 七、游戏生命周期
 
-### 5.1 游戏启动
+
+### 7.1 游戏启动
 
 在游戏开始时执行一次性初始化。
 
@@ -288,6 +471,7 @@ dialog merchant_dialog:
 on game start:
     <初始化语句>
 ```
+
 
 **示例：**
 
@@ -301,7 +485,7 @@ on game start:
     set world.time to "morning"
 ```
 
-### 5.2 每回合更新
+### 7.2 每回合更新
 
 在每个游戏回合执行更新逻辑。
 
@@ -309,6 +493,7 @@ on game start:
 on every turn:
     <更新语句>
 ```
+
 
 **示例：**
 
@@ -318,20 +503,24 @@ on every turn:
     increase world.hour by 1
     
     if world.hour is greater than 22 and not player.has lantern:
-        say "You are engulfed by darkness..."
+        echo "You are engulfed by darkness..."
         end game
 ```
 
 ---
 
-## 六、形式化语法扩展
 
-### 6.1 EBNF 定义（游戏框架扩展）
+---
+
+## 八、形式化语法扩展
+
+### 8.1 EBNF 定义（游戏框架扩展）
 
 ```ebnf
 (* ============================================
-   H-Game 形式化语法扩展 v1.0
+   H-Game 形式化语法扩展 v1.1
    基于 H-Core 语法
+   新增：继承机制、复合动作、条件出口
    ============================================ *)
 
 (* --------------------------------------------
@@ -345,15 +534,24 @@ desc_attr       = "description", "is", string;
 items_attr      = "items", "is", list;
 chars_attr      = "characters", "is", list;
 exits_attr      = "exits", "is", "[", [ exit_def, { ",", exit_def } ], "]";
-exit_def        = identifier, "to", identifier, [ "if", expression ];
+exit_def        = direction, "to", identifier, [ exit_condition ];
+direction       = "north" | "south" | "east" | "west" | "up" | "down" 
+                 | "northeast" | "northwest" | "southeast" | "southwest"
+                 | identifier;
+exit_condition  = "if", expression;
 
-item_def        = "Item", identifier, ":", indent, item_body, dedent;
+item_def        = "Item", identifier, [ extends_clause ], ":", indent, item_body, dedent;
+extends_clause  = "extends", identifier, { ",", identifier };
 item_body       = desc_attr, [ tags_attr ], { property }, { verb_handler };
 tags_attr       = "tags", "is", list;
 property        = identifier, "is", value;
-verb_handler    = "on", identifier, ":", indent, { statement }, dedent;
+verb_handler    = "on", verb_pattern, ":", indent, { statement }, dedent;
+verb_pattern    = verb_alias, { "|", verb_alias }, [ action_target ];
+verb_alias      = identifier;
+action_target   = "this" | identifier, [ preposition, identifier ];
+preposition     = "on" | "with" | "at" | "to" | "from" | "in";
 
-character_def   = "Character", identifier, ":", indent, char_body, dedent;
+character_def   = "Character", identifier, [ extends_clause ], ":", indent, char_body, dedent;
 char_body       = desc_attr, { property }, [ "uses", "dialog", identifier ];
 
 dialog_def      = "dialog", identifier, ":", indent, { state_def }, dedent;
@@ -370,8 +568,8 @@ event_handler   = "on", event_type, ":", event_target, ":", indent, { statement 
 event_type      = "action" | "state" | "timer" | "event" | "game start" | "every turn";
 event_target    = player_action | expression | identifier, "expires";
 
-player_action   = "player", identifier, [ "this" ]
-                 | "player", identifier, identifier, "on", identifier;
+player_action   = "player", verb_pattern
+                 | "player", verb_pattern, preposition, identifier;
 
 (* --------------------------------------------
    概率事件
@@ -379,16 +577,64 @@ player_action   = "player", identifier, [ "this" ]
 chance_stmt     = number, "%", "chance", ":", indent, { statement }, dedent;
 ```
 
-### 6.2 新增关键字
+### 8.2 条件出口详细规范
+
+条件出口允许房间出口根据游戏状态动态可用：
+
+```h
+Room SecretChamber:
+    description is "A hidden room behind the bookcase."
+    exits is [
+        south to Library,                                    // 无条件出口
+        up to TreasureVault if secret_stair.isRevealed,    // 条件出口
+        east to EscapeTunnel if player.has map and player.has lantern
+    ]
+```
+
+**条件出口求值规则：**
+
+1. 每次玩家尝试移动时重新求值
+2. 条件为 `true` 时出口显示并可用
+3. 条件为 `false` 时出口隐藏（玩家看不到）
+4. 条件求值失败（错误）时视为 `false`
+
+**动态出口示例：**
+
+```h
+Room CollapsingBridge:
+    description is "A rickety bridge over a chasm."
+    exits is [
+        east to SafeGround,
+        west to TreasureRoom if bridge.supports is greater than 0
+    ]
+
+on every turn:
+    if player.location is "CollapsingBridge":
+        decrease bridge.supports by 1
+        if bridge.supports is 3:
+            echo "The bridge creaks ominously..."
+        else if bridge.supports is 1:
+            echo "The bridge is about to collapse!"
+        else if bridge.supports is less than or equal to 0:
+            echo "The bridge collapses behind you!"
+            // 出口自动不可用
+```
+
+
+
+### 8.3 新增关键字
 
 游戏框架添加了以下关键字（相对于 H-Core）：
 
 ```
-action, assert, by, contains, description, dialog, event, every, exits
-game, goto, has, increase, item, items, on, option, perform, player
-remove, room, run, say, set, speaker, start, state, stop, tags, test
-text, this, timer, to, turn, uses, wait, when
+action, assert, at, by, contains, description, dialog, east, event, every, exits
+extends, from, game, goto, has, increase, in, item, items, northeast, northwest, 
+north, on, option, perform, player, remove, room, run, echo, set, south, southeast, 
+southwest, speaker, start, state, stop, tags, test, text, this, timer, to, turn, 
+uses, wait, when, with
 ```
+
+
 
 ---
 
@@ -426,10 +672,10 @@ Item rusty_key:
             set great_door.isLocked to false
             set great_door.isOpen to true
             set this.isBroken to true
-            say "The key turns with a grinding sound... and snaps!"
-            say "But the door swings open."
+            echo "The key turns with a grinding sound... and snaps!"
+            echo "But the door swings open."
         else:
-            say "The door is already unlocked."
+            echo "The door is already unlocked."
 
 Item lantern:
     description is "A brass lantern. It needs oil."
@@ -438,7 +684,7 @@ Item lantern:
     on uses oil_flask:
         set this.hasOil to true
         set this.isLit to true
-        say "You fill and light the lantern. Warm glow fills the area."
+        echo "You fill and light the lantern. Warm glow fills the area."
 
 Character guard:
     description is "A tired guard leaning on his spear."
@@ -495,16 +741,16 @@ dialog guard_dialog:
         text is "Move along now."
 
 on action: player attacks guard:
-    say "The guard raises his spear. 'You dare?'"
+    echo "The guard raises his spear. 'You dare?'"
     set guard.isHostile to true
 
 on state: player.location is "Courtyard" and not player has lantern:
-    say "It's getting dark. You should find a light source."
+    echo "It's getting dark. You should find a light source."
 
 on every turn:
     increase $moves by 1
     if $moves is greater than 100:
-        say "You collapse from exhaustion..."
+        echo "You collapse from exhaustion..."
         end game
 ```
 
