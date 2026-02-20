@@ -21,6 +21,7 @@ class TokenType(Enum):
     GLOBAL_VAR = auto()       # $xxx 全局变量
     
     # 关键字
+    ADD = auto()              # add
     AND = auto()
     BY = auto()
     CONTAINS = auto()
@@ -30,19 +31,25 @@ class TokenType(Enum):
     FALSE = auto()
     FOR = auto()
     FROM = auto()
+    GAME = auto()             # game
     HAS = auto()
     IF = auto()
     IN = auto()
     DECREASE = auto()
     INCREASE = auto()
     IS = auto()
-
+    MINUTES = auto()          # minutes
+    MOVE = auto()             # move
     NOT = auto()
     NULL_KEYWORD = auto()
     ON = auto()
     OR = auto()
+    PARALLEL = auto()         # parallel
+    PERFORM = auto()            # perform
     REMOVE = auto()
+
     RUN = auto()
+    SECONDS = auto()          # seconds
     SET = auto()
     START = auto()
     STOP = auto()
@@ -53,6 +60,7 @@ class TokenType(Enum):
     WAIT = auto()
     WHEN = auto()
     WHILE = auto()
+    WITH = auto()             # with
     
     # 函数相关关键字
     FUNCTION = auto()         # function
@@ -60,6 +68,7 @@ class TokenType(Enum):
     ASK = auto()              # ask
     AS = auto()               # as
     ECHO = auto()             # echo
+
     
     # 运算符
     PLUS = auto()             # +
@@ -112,6 +121,7 @@ class Token:
 
 # 关键字映射表
 KEYWORDS = {
+    'add': TokenType.ADD,
     'and': TokenType.AND,
     'by': TokenType.BY,
     'contains': TokenType.CONTAINS,
@@ -121,19 +131,25 @@ KEYWORDS = {
     'false': TokenType.FALSE,
     'for': TokenType.FOR,
     'from': TokenType.FROM,
+    'game': TokenType.GAME,
     'has': TokenType.HAS,
     'if': TokenType.IF,
     'in': TokenType.IN,
     'increase': TokenType.INCREASE,
     'decrease': TokenType.DECREASE,
     'is': TokenType.IS,
-
+    'minutes': TokenType.MINUTES,
+    'move': TokenType.MOVE,
     'not': TokenType.NOT,
     'null': TokenType.NULL_KEYWORD,
     'on': TokenType.ON,
     'or': TokenType.OR,
+    'parallel': TokenType.PARALLEL,
+    'perform': TokenType.PERFORM,
     'remove': TokenType.REMOVE,
+
     'run': TokenType.RUN,
+    'seconds': TokenType.SECONDS,
     'set': TokenType.SET,
     'start': TokenType.START,
     'stop': TokenType.STOP,
@@ -144,12 +160,14 @@ KEYWORDS = {
     'wait': TokenType.WAIT,
     'when': TokenType.WHEN,
     'while': TokenType.WHILE,
+    'with': TokenType.WITH,
     'function': TokenType.FUNCTION,
     'return': TokenType.RETURN,
     'ask': TokenType.ASK,
     'as': TokenType.AS,
     'echo': TokenType.ECHO,
 }
+
 
 
 class LexerError(Exception):

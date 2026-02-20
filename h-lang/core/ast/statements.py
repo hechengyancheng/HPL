@@ -250,13 +250,177 @@ class RemoveStatement(Statement):
     例如: remove item from inventory
     """
     item: Expression      # 要移除的元素
-    target: Expression    # 目标列表
+    source: Expression    # 来源列表
     
     def accept(self, visitor):
         return visitor.visit_remove_statement(self)
     
     def __repr__(self):
-        return f"RemoveStatement(remove {self.item} from {self.target})"
+        return f"RemoveStatement(remove {self.item} from {self.source})"
+
+
+# ==================== 标准库动作语句 ====================
+
+@dataclass
+class MoveStatement(Statement):
+    """
+    移动语句
+    例如: move to Kitchen, move to $destination
+    """
+    location: Expression  # 目标位置
+    
+    def accept(self, visitor):
+        return visitor.visit_move_statement(self)
+    
+    def __repr__(self):
+        return f"MoveStatement(to {self.location})"
+
+
+@dataclass
+class WaitStatement(Statement):
+    """
+    等待语句
+    例如: wait for 3 seconds, wait for 1 minutes
+    """
+    duration: Expression  # 持续时间
+    unit: str = "seconds"  # 时间单位 (seconds/minutes)
+    
+    def accept(self, visitor):
+        return visitor.visit_wait_statement(self)
+    
+    def __repr__(self):
+        return f"WaitStatement({self.duration} {self.unit})"
+
+
+@dataclass
+class EndGameStatement(Statement):
+    """
+    结束游戏语句
+    例如: end game
+    """
+    
+    def accept(self, visitor):
+        return visitor.visit_end_game_statement(self)
+    
+    def __repr__(self):
+        return "EndGameStatement()"
+
+
+@dataclass
+class StartTimerStatement(Statement):
+    """
+    启动计时器语句
+    例如: start timer bomb for 30 seconds
+    """
+    name: Expression      # 计时器名称
+    duration: Expression  # 持续时间
+    unit: str = "seconds" # 时间单位
+    
+    def accept(self, visitor):
+        return visitor.visit_start_timer_statement(self)
+    
+    def __repr__(self):
+        return f"StartTimerStatement({self.name} for {self.duration} {self.unit})"
+
+
+@dataclass
+class StopTimerStatement(Statement):
+    """
+    停止计时器语句
+    例如: stop timer bomb
+    """
+    name: Expression  # 计时器名称
+    
+    def accept(self, visitor):
+        return visitor.visit_stop_timer_statement(self)
+    
+    def __repr__(self):
+        return f"StopTimerStatement({self.name})"
+
+
+@dataclass
+class PerformStatement(Statement):
+    """
+    执行动作语句
+    例如: perform combat.attack with player, enemy
+    """
+    action: Expression    # 动作名称
+    arguments: List[Expression] = field(default_factory=list)  # 动作参数
+    
+    def accept(self, visitor):
+        return visitor.visit_perform_statement(self)
+    
+    def __repr__(self):
+        args = ", ".join(str(arg) for arg in self.arguments)
+        return f"PerformStatement({self.action} with {args})"
+
+
+@dataclass
+class ParallelStatement(Statement):
+    """
+    并行执行语句
+    例如:
+    run in parallel:
+        echo "Task 1"
+        wait for 1 seconds
+    """
+    body: List[Statement] = field(default_factory=list)
+    
+    def accept(self, visitor):
+        return visitor.visit_parallel_statement(self)
+    
+    def __repr__(self):
+        return f"ParallelStatement(body={len(self.body)} stmts)"
+
+
+# ==================== 测试框架语句 ====================
+
+@dataclass
+class TestStatement(Statement):
+    """
+    测试定义语句
+    例如:
+    test "combat system":
+        // setup
+        // action
+        // assertions
+    """
+    name: str                    # 测试名称
+    body: List[Statement] = field(default_factory=list)
+    
+    def accept(self, visitor):
+        return visitor.visit_test_statement(self)
+    
+    def __repr__(self):
+        return f"TestStatement({self.name!r}, body={len(self.body)} stmts)"
+
+
+@dataclass
+class AssertStatement(Statement):
+    """
+    断言语句
+    例如:
+    assert condition
+    assert not condition
+    assert value is expected
+    assert list contains item
+    """
+    condition: Expression
+    expected: Optional[Expression] = None  # 用于 assert ... is ...
+    operator: str = "truthy"  # "truthy", "not", "is", "contains"
+    message: str = ""
+    
+    def accept(self, visitor):
+        return visitor.visit_assert_statement(self)
+    
+    def __repr__(self):
+        if self.operator == "is":
+            return f"AssertStatement({self.condition} is {self.expected})"
+        elif self.operator == "contains":
+            return f"AssertStatement({self.condition} contains {self.expected})"
+        elif self.operator == "not":
+            return f"AssertStatement(not {self.condition})"
+        return f"AssertStatement({self.condition})"
 
 
 # ==================== 程序根节点 ====================
@@ -331,6 +495,42 @@ class StatementVisitor(ABC):
     
     @abstractmethod
     def visit_remove_statement(self, stmt: RemoveStatement):
+        pass
+    
+    @abstractmethod
+    def visit_move_statement(self, stmt: MoveStatement):
+        pass
+    
+    @abstractmethod
+    def visit_wait_statement(self, stmt: WaitStatement):
+        pass
+    
+    @abstractmethod
+    def visit_end_game_statement(self, stmt: EndGameStatement):
+        pass
+    
+    @abstractmethod
+    def visit_start_timer_statement(self, stmt: StartTimerStatement):
+        pass
+    
+    @abstractmethod
+    def visit_stop_timer_statement(self, stmt: StopTimerStatement):
+        pass
+    
+    @abstractmethod
+    def visit_perform_statement(self, stmt: PerformStatement):
+        pass
+    
+    @abstractmethod
+    def visit_parallel_statement(self, stmt: ParallelStatement):
+        pass
+    
+    @abstractmethod
+    def visit_test_statement(self, stmt: TestStatement):
+        pass
+    
+    @abstractmethod
+    def visit_assert_statement(self, stmt: AssertStatement):
         pass
     
     @abstractmethod
@@ -427,7 +627,48 @@ class StatementPrinter(StatementVisitor):
         self._print(f"AddStatement: add {stmt.item} to {stmt.target}")
     
     def visit_remove_statement(self, stmt: RemoveStatement):
-        self._print(f"RemoveStatement: remove {stmt.item} from {stmt.target}")
+        self._print(f"RemoveStatement: remove {stmt.item} from {stmt.source}")
+    
+    def visit_move_statement(self, stmt: MoveStatement):
+        self._print(f"MoveStatement: to {stmt.location}")
+    
+    def visit_wait_statement(self, stmt: WaitStatement):
+        self._print(f"WaitStatement: {stmt.duration} {stmt.unit}")
+    
+    def visit_end_game_statement(self, stmt: EndGameStatement):
+        self._print("EndGameStatement")
+    
+    def visit_start_timer_statement(self, stmt: StartTimerStatement):
+        self._print(f"StartTimerStatement: {stmt.name} for {stmt.duration} {stmt.unit}")
+    
+    def visit_stop_timer_statement(self, stmt: StopTimerStatement):
+        self._print(f"StopTimerStatement: {stmt.name}")
+    
+    def visit_perform_statement(self, stmt: PerformStatement):
+        self._print(f"PerformStatement: {stmt.action}")
+        if stmt.arguments:
+            self.indent += 1
+            for i, arg in enumerate(stmt.arguments):
+                self._print(f"Arg {i}: {arg}")
+            self.indent -= 1
+    
+    def visit_parallel_statement(self, stmt: ParallelStatement):
+        self._print(f"ParallelStatement:")
+        self._print_statements(stmt.body)
+    
+    def visit_test_statement(self, stmt: TestStatement):
+        self._print(f"TestStatement: {stmt.name!r}")
+        self._print_statements(stmt.body)
+    
+    def visit_assert_statement(self, stmt: AssertStatement):
+        if stmt.operator == "is":
+            self._print(f"AssertStatement: {stmt.condition} is {stmt.expected}")
+        elif stmt.operator == "contains":
+            self._print(f"AssertStatement: {stmt.condition} contains {stmt.expected}")
+        elif stmt.operator == "not":
+            self._print(f"AssertStatement: not {stmt.condition}")
+        else:
+            self._print(f"AssertStatement: {stmt.condition}")
     
     def visit_program(self, stmt: Program):
         self._print(f"Program:")

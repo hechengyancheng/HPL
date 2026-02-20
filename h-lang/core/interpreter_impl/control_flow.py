@@ -85,3 +85,14 @@ class HAttributeError(HRuntimeError):
     H语言属性错误
     """
     pass
+
+
+class EndGameException(Exception):
+    """
+    游戏结束控制流
+    当执行end game语句时抛出
+    """
+    
+    def __init__(self, message: str = "Game ended"):
+        self.message = message
+        super().__init__(message)

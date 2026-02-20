@@ -9,8 +9,8 @@ from ..ast.statements import *
 from ..types.primitive import *
 from ..types.operations import Operations, COMPARISON_OPERATORS
 from .environment import Environment
-from .control_flow import ReturnException, HRuntimeError
-
+from .control_flow import ReturnException, HRuntimeError, EndGameException
+from ..stdlib.actions import StdlibActions, ActionContext
 
 
 class Evaluator(ExpressionVisitor, StatementVisitor):
@@ -28,12 +28,18 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         
         # 内置函数注册表
         self.builtins: Dict[str, Any] = {}
+        
+        # 标准库动作上下文
+        self.action_context = ActionContext()
+        self.stdlib_actions = StdlibActions(self.action_context)
+        
         self._register_builtins()
     
     def _register_builtins(self):
         """注册内置函数"""
-        # 将在stdlib中实现
+        # 标准库动作指令作为内置函数注册
         pass
+
     
     def set_builtin(self, name: str, func):
         """设置内置函数"""
@@ -310,16 +316,11 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         
         if isinstance(target, Identifier):
             # 局部变量
-            print(f"[DEBUG] Assigning to {target.name}, value type: {type(value).__name__}")
             if self.env.exists(target.name):
-                print(f"[DEBUG] {target.name} exists, assigning")
                 self.env.assign(target.name, value)
             else:
                 # 新变量定义
-                print(f"[DEBUG] {target.name} is new, defining")
                 self.env.define(target.name, value)
-            print(f"[DEBUG] After assignment, env has: {list(self.env.variables.keys())}")
-
         
         elif isinstance(target, GlobalVariable):
             # 全局变量
@@ -373,10 +374,7 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     def visit_function_definition(self, stmt: FunctionDefinition):
         """执行函数定义"""
         # 将函数定义存储在环境中
-        print(f"[DEBUG] Defining function: {stmt.name}")
         self.env.define(stmt.name, stmt)
-        print(f"[DEBUG] Function {stmt.name} defined. Env now has: {list(self.env.variables.keys())}")
-
     
     def visit_return_statement(self, stmt: ReturnStatement):
         """执行返回语句"""
@@ -414,100 +412,202 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     def visit_echo_statement(self, stmt: EchoStatement):
         """执行输出语句"""
         value = stmt.expression.accept(self)
+        self.stdlib_actions.echo(value)
         output = value.to_string()
         self.output_buffer.append(output)
-        print(output)  # 同时输出到控制台
+
     
     def visit_increase_statement(self, stmt: IncreaseStatement):
         """执行增加语句"""
         target = stmt.target
         amount = stmt.amount.accept(self)
         
-        if not isinstance(amount, HNumber):
-            raise HRuntimeError("Increase amount must be a number")
-        
         if isinstance(target, Identifier):
             current = self.env.get(target.name)
-            if not isinstance(current, HNumber):
-                raise HRuntimeError(f"Cannot increase non-number: {target.name}")
-            new_value = current + amount
+            new_value = self.stdlib_actions.increase_by(current, amount)
             self.env.assign(target.name, new_value)
         
         elif isinstance(target, GlobalVariable):
             current = self.env.get_global(target.name)
-            if not isinstance(current, HNumber):
-                raise HRuntimeError(f"Cannot increase non-number: ${target.name}")
-            new_value = current + amount
+            new_value = self.stdlib_actions.increase_by(current, amount)
             self.env.assign_global(target.name, new_value)
+        
+        elif isinstance(target, PropertyAccess):
+            obj = target.object.accept(self)
+            current = Operations.get_property(obj, target.property_name)
+            new_value = self.stdlib_actions.increase_by(current, amount)
+            Operations.set_property(obj, target.property_name, new_value)
         
         else:
             raise HRuntimeError(f"Invalid increase target: {type(target)}")
     
-    def visit_decrease_statement(self, stmt: 'DecreaseStatement'):
+    def visit_decrease_statement(self, stmt: DecreaseStatement):
         """执行减少语句"""
         target = stmt.target
         amount = stmt.amount.accept(self)
         
-        if not isinstance(amount, HNumber):
-            raise HRuntimeError("Decrease amount must be a number")
-        
         if isinstance(target, Identifier):
             current = self.env.get(target.name)
-            if not isinstance(current, HNumber):
-                raise HRuntimeError(f"Cannot decrease non-number: {target.name}")
-            new_value = current - amount
+            new_value = self.stdlib_actions.decrease_by(current, amount)
             self.env.assign(target.name, new_value)
         
         elif isinstance(target, GlobalVariable):
             current = self.env.get_global(target.name)
-            if not isinstance(current, HNumber):
-                raise HRuntimeError(f"Cannot decrease non-number: ${target.name}")
-            new_value = current - amount
+            new_value = self.stdlib_actions.decrease_by(current, amount)
             self.env.assign_global(target.name, new_value)
+        
+        elif isinstance(target, PropertyAccess):
+            obj = target.object.accept(self)
+            current = Operations.get_property(obj, target.property_name)
+            new_value = self.stdlib_actions.decrease_by(current, amount)
+            Operations.set_property(obj, target.property_name, new_value)
         
         else:
             raise HRuntimeError(f"Invalid decrease target: {type(target)}")
 
     
-    def visit_add_statement(self, stmt: 'AddStatement'):
+    def visit_add_statement(self, stmt: AddStatement):
         """执行添加元素语句"""
         item = stmt.item.accept(self)
         target = stmt.target.accept(self)
         
-        if not isinstance(target, HList):
-            raise HRuntimeError(f"Cannot add to non-list: {target.type_name()}")
+        # 使用标准库动作
+        new_list = self.stdlib_actions.add_to(item, target)
         
-        # 添加元素（创建新列表并赋值回去）
-        new_list = target.append(item)
-        
-        # 需要重新赋值
+        # 重新赋值
         if isinstance(stmt.target, Identifier):
             self.env.assign(stmt.target.name, new_list)
         elif isinstance(stmt.target, GlobalVariable):
             self.env.assign_global(stmt.target.name, new_list)
+        elif isinstance(stmt.target, PropertyAccess):
+            obj = stmt.target.object.accept(self)
+            Operations.set_property(obj, stmt.target.property_name, new_list)
     
-    def visit_remove_statement(self, stmt: 'RemoveStatement'):
+    def visit_remove_statement(self, stmt: RemoveStatement):
         """执行移除元素语句"""
-        pass  # 简化处理
+        item = stmt.item.accept(self)
+        source = stmt.source.accept(self)
+        
+        # 使用标准库动作
+        new_list = self.stdlib_actions.remove_from(item, source)
+        
+        # 重新赋值
+        if isinstance(stmt.source, Identifier):
+            self.env.assign(stmt.source.name, new_list)
+        elif isinstance(stmt.source, GlobalVariable):
+            self.env.assign_global(stmt.source.name, new_list)
+        elif isinstance(stmt.source, PropertyAccess):
+            obj = stmt.source.object.accept(self)
+            Operations.set_property(obj, stmt.source.property_name, new_list)
+
     
     def visit_program(self, stmt: Program):
         """执行程序"""
-        print(f"[DEBUG] visit_program: {len(stmt.functions)} functions, {len(stmt.statements)} statements")
-        print(f"[DEBUG] Function names: {list(stmt.functions.keys())}")
-        
         # 先注册所有函数定义
         for func in stmt.functions.values():
-            print(f"[DEBUG] Registering function from stmt.functions: {func.name}")
             self.env.define(func.name, func)
         
-        print(f"[DEBUG] After registering, env has: {list(self.env.variables.keys())}")
-        
         # 执行所有语句
-        for i, s in enumerate(stmt.statements):
-            print(f"[DEBUG] Executing statement {i}: {type(s).__name__}")
-            s.accept(self)
+        try:
+            for s in stmt.statements:
+                s.accept(self)
+        except EndGameException:
+            # 游戏正常结束
+            pass
         
         return HNull()
+    
+    def visit_move_statement(self, stmt: MoveStatement):
+        """执行移动语句"""
+        location = stmt.location.accept(self)
+        self.stdlib_actions.move_to(location)
+    
+    def visit_wait_statement(self, stmt: WaitStatement):
+        """执行等待语句"""
+        duration = stmt.duration.accept(self)
+        unit = HString(stmt.unit) if stmt.unit else HString("seconds")
+        self.stdlib_actions.wait_for(duration, unit)
+    
+    def visit_end_game_statement(self, stmt: EndGameStatement):
+        """执行结束游戏语句"""
+        self.stdlib_actions.end_game()
+    
+    def visit_start_timer_statement(self, stmt: StartTimerStatement):
+        """执行启动计时器语句"""
+        name = stmt.name.accept(self)
+        duration = stmt.duration.accept(self)
+        unit = HString(stmt.unit) if stmt.unit else HString("seconds")
+        self.stdlib_actions.start_timer(name, duration, unit)
+    
+    def visit_stop_timer_statement(self, stmt: StopTimerStatement):
+        """执行停止计时器语句"""
+        name = stmt.name.accept(self)
+        self.stdlib_actions.stop_timer(name)
+    
+    def visit_perform_statement(self, stmt: PerformStatement):
+        """执行动作语句"""
+        action_name = stmt.action.accept(self)
+        args = HList([arg.accept(self) for arg in stmt.arguments])
+        self.stdlib_actions.perform(action_name, args)
+    
+    def visit_parallel_statement(self, stmt: ParallelStatement):
+        """执行并行语句"""
+        # 创建函数包装语句块
+        def parallel_func():
+            for s in stmt.body:
+                s.accept(self)
+        
+        self.stdlib_actions.run_parallel(parallel_func)
+    
+    def visit_test_statement(self, stmt: TestStatement):
+        """执行测试语句"""
+        # 测试框架实现
+        print(f"Running test: {stmt.name}")
+        try:
+            for s in stmt.body:
+                s.accept(self)
+            print(f"  ✓ Test '{stmt.name}' passed")
+        except AssertionError as e:
+            print(f"  ✗ Test '{stmt.name}' failed: {e}")
+        except Exception as e:
+            print(f"  ✗ Test '{stmt.name}' error: {e}")
+    
+    def visit_assert_statement(self, stmt: AssertStatement):
+        """执行断言语句"""
+        if stmt.operator == "truthy":
+            condition = stmt.condition.accept(self)
+            if not condition.is_truthy():
+                raise AssertionError(stmt.message or "Assertion failed")
+        
+        elif stmt.operator == "not":
+            condition = stmt.condition.accept(self)
+            if condition.is_truthy():
+                raise AssertionError(stmt.message or "Assertion failed: expected false")
+        
+        elif stmt.operator == "is":
+            actual = stmt.condition.accept(self)
+            expected = stmt.expected.accept(self)
+            if not actual.equals(expected).value:
+                raise AssertionError(
+                    stmt.message or f"Expected {expected.to_string()}, got {actual.to_string()}"
+                )
+        
+        elif stmt.operator == "contains":
+            container = stmt.condition.accept(self)
+            item = stmt.expected.accept(self)
+            if not isinstance(container, HList):
+                raise HRuntimeError("assert contains requires a list")
+            
+            found = False
+            for elem in container.value:
+                if elem.equals(item).value:
+                    found = True
+                    break
+            
+            if not found:
+                raise AssertionError(
+                    stmt.message or f"List does not contain {item.to_string()}"
+                )
 
     
     def get_output(self) -> List[str]:

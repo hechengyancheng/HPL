@@ -162,7 +162,33 @@ class Parser:
         
         if self.match(TokenType.DECREASE):
             return self.decrease_statement()
-
+        
+        if self.match(TokenType.ADD):
+            return self.add_statement()
+        
+        if self.match(TokenType.REMOVE):
+            return self.remove_statement()
+        
+        if self.match(TokenType.MOVE):
+            return self.move_statement()
+        
+        if self.match(TokenType.WAIT):
+            return self.wait_statement()
+        
+        if self.match(TokenType.END):
+            return self.end_game_statement()
+        
+        if self.match(TokenType.START):
+            return self.start_timer_statement()
+        
+        if self.match(TokenType.STOP):
+            return self.stop_timer_statement()
+        
+        if self.match(TokenType.PERFORM):
+            return self.perform_statement()
+        
+        if self.match(TokenType.RUN):
+            return self.parallel_statement()
         
         if self.match(TokenType.FOR):
             # 简化处理：for循环
@@ -171,6 +197,7 @@ class Parser:
         # 表达式语句
         expr = self.expression()
         return ExpressionStatement(expr)
+
     
     def assignment_statement(self) -> Assignment:
         """
@@ -327,9 +354,109 @@ class Parser:
         amount = self.expression()
         
         return DecreaseStatement(target, amount)
+    
+    def add_statement(self) -> AddStatement:
+        """
+        解析添加语句: add <item> to <target>
+        """
+        item = self.expression()
+        self.consume(TokenType.TO, "Expected 'to' after item")
+        target = self.lvalue()
+        return AddStatement(item, target)
+    
+    def remove_statement(self) -> RemoveStatement:
+        """
+        解析移除语句: remove <item> from <source>
+        """
+        item = self.expression()
+        self.consume(TokenType.FROM, "Expected 'from' after item")
+        source = self.lvalue()
+        return RemoveStatement(item, source)
+    
+    def move_statement(self) -> MoveStatement:
+        """
+        解析移动语句: move to <location>
+        """
+        self.consume(TokenType.TO, "Expected 'to' after 'move'")
+        location = self.expression()
+        return MoveStatement(location)
+    
+    def wait_statement(self) -> WaitStatement:
+        """
+        解析等待语句: wait for <duration> <unit>
+        """
+        self.consume(TokenType.FOR, "Expected 'for' after 'wait'")
+        duration = self.expression()
+        
+        # 解析时间单位
+        unit = "seconds"
+        if self.match(TokenType.SECONDS):
+            unit = "seconds"
+        elif self.match(TokenType.MINUTES):
+            unit = "minutes"
+        
+        return WaitStatement(duration, unit)
+    
+    def end_game_statement(self) -> EndGameStatement:
+        """
+        解析结束游戏语句: end game
+        """
+        self.consume(TokenType.GAME, "Expected 'game' after 'end'")
+        return EndGameStatement()
+    
+    def start_timer_statement(self) -> StartTimerStatement:
+        """
+        解析启动计时器语句: start timer <name> for <duration> <unit>
+        """
+        self.consume(TokenType.TIMER, "Expected 'timer' after 'start'")
+        name = self.expression()
+        self.consume(TokenType.FOR, "Expected 'for' after timer name")
+        duration = self.expression()
+        
+        # 解析时间单位
+        unit = "seconds"
+        if self.match(TokenType.SECONDS):
+            unit = "seconds"
+        elif self.match(TokenType.MINUTES):
+            unit = "minutes"
+        
+        return StartTimerStatement(name, duration, unit)
+    
+    def stop_timer_statement(self) -> StopTimerStatement:
+        """
+        解析停止计时器语句: stop timer <name>
+        """
+        self.consume(TokenType.TIMER, "Expected 'timer' after 'stop'")
+        name = self.expression()
+        return StopTimerStatement(name)
+    
+    def perform_statement(self) -> PerformStatement:
+        """
+        解析动作语句: perform <action> [with <arg1>, <arg2>, ...]
+        """
+        action = self.expression()
+        
+        arguments = []
+        if self.match(TokenType.WITH):
+            arguments.append(self.expression())
+            while self.match(TokenType.COMMA):
+                arguments.append(self.expression())
+        
+        return PerformStatement(action, arguments)
+    
+    def parallel_statement(self) -> ParallelStatement:
+        """
+        解析并行语句: run in parallel: <block>
+        """
+        self.consume(TokenType.IN, "Expected 'in' after 'run'")
+        self.consume(TokenType.PARALLEL, "Expected 'parallel' after 'in'")
+        self.consume(TokenType.COLON, "Expected ':' after 'parallel'")
+        body = self.block()
+        return ParallelStatement(body)
 
     
     def block(self) -> List[Statement]:
+
         """
         解析代码块（缩进块）
         """
