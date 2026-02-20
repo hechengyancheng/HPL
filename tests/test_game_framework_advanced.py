@@ -6,10 +6,12 @@ H语言游戏框架高级功能测试
 import sys
 import os
 
-# Add h-lang directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'h-lang'))
+# 添加项目根目录到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from core.interpreter import HLangInterpreter
+# 通过包导入
+from h_lang.core import HLangInterpreter
+
 
 
 

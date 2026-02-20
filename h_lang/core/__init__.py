@@ -8,7 +8,7 @@ H语言核心包
 - interpreter: 解释器
 - ast: 抽象语法树
 - types: 类型系统
-- stdlib: 标准库
+- runtime: 运行时组件
 """
 
 import sys
@@ -20,8 +20,10 @@ _imported = False
 # Strategy 1: Relative imports
 try:
     from .interpreter import HLangInterpreter, run, run_file
-    from .lexer import tokenize, LexerError
+    from .lexer import tokenize, TokenType, LexerError
     from .parser import parse, ParseError
+    from .runtime.control_flow import HRuntimeError, EndGameException
+    from .types import HNumber, HString, HBoolean, HList, HNull, Operations
     _imported = True
 except ImportError:
     pass
@@ -30,8 +32,10 @@ except ImportError:
 if not _imported:
     try:
         from core.interpreter import HLangInterpreter, run, run_file
-        from core.lexer import tokenize, LexerError
+        from core.lexer import tokenize, TokenType, LexerError
         from core.parser import parse, ParseError
+        from core.runtime.control_flow import HRuntimeError, EndGameException
+        from core.types import HNumber, HString, HBoolean, HList, HNull, Operations
         _imported = True
     except ImportError:
         pass
@@ -46,8 +50,10 @@ if not _imported:
             sys.path.insert(0, h_lang_dir)
         
         from core.interpreter import HLangInterpreter, run, run_file
-        from core.lexer import tokenize, LexerError
+        from core.lexer import tokenize, TokenType, LexerError
         from core.parser import parse, ParseError
+        from core.runtime.control_flow import HRuntimeError, EndGameException
+        from core.types import HNumber, HString, HBoolean, HList, HNull, Operations
         _imported = True
     except ImportError as e:
         raise ImportError(f"Could not import core modules: {e}")
@@ -57,7 +63,16 @@ __all__ = [
     'run',
     'run_file',
     'tokenize',
+    'TokenType',
     'LexerError',
     'parse',
     'ParseError',
+    'HRuntimeError',
+    'EndGameException',
+    'HNumber',
+    'HString',
+    'HBoolean',
+    'HList',
+    'HNull',
+    'Operations',
 ]

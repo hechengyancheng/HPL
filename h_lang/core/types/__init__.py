@@ -20,4 +20,5 @@ __all__ = [
     'HFunction',
     'from_python',
     'to_python',
+    'Operations',
 ]

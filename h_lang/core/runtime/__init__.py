@@ -19,7 +19,9 @@ from .control_flow import (
     ReturnException,
     BreakException,
     ContinueException,
+    EndGameException,
 )
+
 
 __all__ = [
     'Environment',
@@ -32,4 +34,5 @@ __all__ = [
     'ReturnException',
     'BreakException',
     'ContinueException',
+    'EndGameException',
 ]

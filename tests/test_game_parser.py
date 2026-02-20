@@ -4,45 +4,13 @@ Test game framework parsing
 """
 import sys
 import os
-import importlib.util
 
-# Directly load lexer module without going through core.__init__
-hlang_path = os.path.join(os.path.dirname(__file__), 'h-lang')
-lexer_path = os.path.join(hlang_path, 'core', 'lexer.py')
+# 添加项目根目录到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-spec = importlib.util.spec_from_file_location("core.lexer", lexer_path)
-lexer_module = importlib.util.module_from_spec(spec)
-sys.modules["core.lexer"] = lexer_module
-spec.loader.exec_module(lexer_module)
+# 通过包导入
+from h_lang.core import tokenize, parse, TokenType
 
-tokenize = lexer_module.tokenize
-Token = lexer_module.Token
-TokenType = lexer_module.TokenType
-
-# Directly load AST modules
-ast_path = os.path.join(hlang_path, 'core', 'ast')
-expressions_path = os.path.join(ast_path, 'expressions.py')
-statements_path = os.path.join(ast_path, 'statements.py')
-
-spec_expr = importlib.util.spec_from_file_location("core.ast.expressions", expressions_path)
-expressions = importlib.util.module_from_spec(spec_expr)
-sys.modules["core.ast.expressions"] = expressions
-spec_expr.loader.exec_module(expressions)
-
-spec_stmt = importlib.util.spec_from_file_location("core.ast.statements", statements_path)
-statements = importlib.util.module_from_spec(spec_stmt)
-sys.modules["core.ast.statements"] = statements
-spec_stmt.loader.exec_module(statements)
-
-# Directly load parser module
-parser_path = os.path.join(hlang_path, 'core', 'parser.py')
-
-spec_parser = importlib.util.spec_from_file_location("core.parser", parser_path)
-parser_module = importlib.util.module_from_spec(spec_parser)
-sys.modules["core.parser"] = parser_module
-spec_parser.loader.exec_module(parser_module)
-
-Parser = parser_module.Parser
 
 
 
@@ -94,9 +62,8 @@ echo "Game objects created successfully"
     print("=" * 60)
     
     try:
-        tokens = tokenize(code)
-        parser = Parser(tokens)
-        program = parser.parse()
+        program = parse(code)
+
         
         print(f"\n✓ Parsing successful!")
         print(f"  Total statements: {len(program.statements)}")

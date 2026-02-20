@@ -6,17 +6,12 @@
 import sys
 import os
 
-# 添加项目根目录和h-lang目录到路径
-project_root = os.path.dirname(os.path.abspath(__file__))
-h_lang_path = os.path.join(project_root, 'h-lang')
+# 添加项目根目录到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-sys.path.insert(0, h_lang_path)
-sys.path.insert(0, project_root)
+# 通过包导入
+from h_lang.core import HLangInterpreter, parse, tokenize
 
-# 导入H语言核心模块
-from core.interpreter import HLangInterpreter
-from core.parser import parse
-from core.lexer import tokenize
 
 
 

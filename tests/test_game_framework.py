@@ -1,6 +1,12 @@
 import sys
-sys.path.insert(0, 'h-lang')
-from core.interpreter import HLangInterpreter
+import os
+
+# 添加项目根目录到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# 通过包导入
+from h_lang.core import HLangInterpreter
+
 
 
 code = '''
