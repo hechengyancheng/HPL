@@ -6,8 +6,8 @@ H语言求值器 - 执行AST
 from typing import Any, Dict, List, Optional
 from ..ast.expressions import *
 from ..ast.statements import *
-from ..hl_types.primitive import *
-from ..hl_types.operations import Operations, COMPARISON_OPERATORS
+from ..types.primitive import *
+from ..types.operations import Operations, COMPARISON_OPERATORS
 
 from .environment import Environment
 from .control_flow import ReturnException, HRuntimeError, EndGameException
@@ -32,7 +32,7 @@ if not _stdlib_imported:
     try:
         # 获取包含此文件的目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        # 向上到 h-lang 目录（core/interpreter_impl -> core -> h-lang）
+        # 向上到 h-lang 目录（core/runtime -> core -> h-lang）
         h_lang_dir = os.path.dirname(os.path.dirname(current_dir))
         
         if h_lang_dir not in sys.path:

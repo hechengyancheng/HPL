@@ -14,7 +14,7 @@ from core.interpreter import HLangInterpreter, run_file, run
 
 from core.lexer import LexerError
 from core.parser import ParseError
-from core.interpreter_impl.control_flow import HRuntimeError
+from core.runtime.control_flow import HRuntimeError
 
 
 def run_demo():

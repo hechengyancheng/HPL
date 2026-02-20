@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from core.interpreter import HLangInterpreter
-from core.interpreter_impl.control_flow import EndGameException
+from core.runtime.control_flow import EndGameException
 
 
 class MockOutputHandler:

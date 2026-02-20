@@ -4,7 +4,7 @@ H语言控制流异常定义
 用于实现return、break、continue等控制流
 """
 
-from ..hl_types.primitive import HValue, HNull
+from ..types.primitive import HValue, HNull
 
 
 

@@ -16,11 +16,11 @@ try:
     from .lexer import tokenize, LexerError
     from .parser import parse, ParseError
     from .ast.statements import Program
-    from .interpreter_impl.environment import Environment
-    from .interpreter_impl.evaluator import Evaluator
-    from .interpreter_impl.control_flow import HRuntimeError
+    from .runtime.environment import Environment
+    from .runtime.evaluator import Evaluator
+    from .runtime.control_flow import HRuntimeError
     from ..stdlib.builtins import Builtins
-    from .hl_types.primitive import from_python, to_python
+    from .types.primitive import from_python, to_python
     _imported = True
 except ImportError:
     pass
@@ -31,11 +31,11 @@ if not _imported:
         from core.lexer import tokenize, LexerError
         from core.parser import parse, ParseError
         from core.ast.statements import Program
-        from core.interpreter_impl.environment import Environment
-        from core.interpreter_impl.evaluator import Evaluator
-        from core.interpreter_impl.control_flow import HRuntimeError
+        from core.runtime.environment import Environment
+        from core.runtime.evaluator import Evaluator
+        from core.runtime.control_flow import HRuntimeError
         from stdlib.builtins import Builtins
-        from core.hl_types.primitive import from_python, to_python
+        from core.types.primitive import from_python, to_python
         _imported = True
     except ImportError:
         pass
@@ -52,11 +52,11 @@ if not _imported:
         from core.lexer import tokenize, LexerError
         from core.parser import parse, ParseError
         from core.ast.statements import Program
-        from core.interpreter_impl.environment import Environment
-        from core.interpreter_impl.evaluator import Evaluator
-        from core.interpreter_impl.control_flow import HRuntimeError
+        from core.runtime.environment import Environment
+        from core.runtime.evaluator import Evaluator
+        from core.runtime.control_flow import HRuntimeError
         from stdlib.builtins import Builtins
-        from core.hl_types.primitive import from_python, to_python
+        from core.types.primitive import from_python, to_python
         _imported = True
     except ImportError as e:
         raise ImportError(f"Could not import required modules: {e}")

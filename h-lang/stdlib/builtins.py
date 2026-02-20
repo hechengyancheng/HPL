@@ -9,19 +9,19 @@ import sys
 import os
 from typing import Callable, Dict, List, Any
 
-# Try multiple import strategies for hl_types
-_hl_types_imported = False
+# Try multiple import strategies for types
+_types_imported = False
 
 # Strategy 1: Relative import
 try:
-    from ..core.hl_types.primitive import *
-    from ..core.hl_types.operations import Operations
-    _hl_types_imported = True
+    from ..core.types.primitive import *
+    from ..core.types.operations import Operations
+    _types_imported = True
 except ImportError:
     pass
 
 # Strategy 2: Add h-lang to path and import directly
-if not _hl_types_imported:
+if not _types_imported:
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         h_lang_dir = os.path.dirname(current_dir)
@@ -29,14 +29,14 @@ if not _hl_types_imported:
         if h_lang_dir not in sys.path:
             sys.path.insert(0, h_lang_dir)
         
-        from core.hl_types.primitive import *
-        from core.hl_types.operations import Operations
-        _hl_types_imported = True
+        from core.types.primitive import *
+        from core.types.operations import Operations
+        _types_imported = True
     except ImportError:
         pass
 
 # Strategy 3: Try with project root
-if not _hl_types_imported:
+if not _types_imported:
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(current_dir)
@@ -48,11 +48,11 @@ if not _hl_types_imported:
         if h_lang_path not in sys.path:
             sys.path.insert(0, h_lang_path)
         
-        from core.hl_types.primitive import *
-        from core.hl_types.operations import Operations
-        _hl_types_imported = True
+        from core.types.primitive import *
+        from core.types.operations import Operations
+        _types_imported = True
     except ImportError as e:
-        raise ImportError(f"Could not import hl_types from any location: {e}")
+        raise ImportError(f"Could not import types from any location: {e}")
 
 
 
