@@ -253,24 +253,25 @@ class Parser:
     
     def function_definition(self) -> FunctionDefinition:
         """
-        解析函数定义: function <name>([params]): ...
+        解析函数定义: function <name>([params]): ... 或 function <name>: ...
         """
         name = self.consume(TokenType.IDENTIFIER, "Expected function name").value
         
-        self.consume(TokenType.LPAREN, "Expected '(' after function name")
-        
-        # 解析参数列表
+        # 解析可选的参数列表
         parameters = []
-        if not self.check(TokenType.RPAREN):
-            parameters.append(self.consume(TokenType.IDENTIFIER, "Expected parameter name").value)
-            while self.match(TokenType.COMMA):
+        if self.match(TokenType.LPAREN):
+            # 有括号的参数列表
+            if not self.check(TokenType.RPAREN):
                 parameters.append(self.consume(TokenType.IDENTIFIER, "Expected parameter name").value)
+                while self.match(TokenType.COMMA):
+                    parameters.append(self.consume(TokenType.IDENTIFIER, "Expected parameter name").value)
+            self.consume(TokenType.RPAREN, "Expected ')' after parameters")
         
-        self.consume(TokenType.RPAREN, "Expected ')' after parameters")
         self.consume(TokenType.COLON, "Expected ':' after function signature")
         
         body = self.block()
         return FunctionDefinition(name, parameters, body)
+
     
     def return_statement(self) -> ReturnStatement:
         """

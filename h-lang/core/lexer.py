@@ -519,6 +519,9 @@ class Lexer:
         """
         lines = self.source.split('\n')
         
+        # 跟踪括号深度，在括号内不处理缩进
+        bracket_depth = 0
+        
         for line_idx, line in enumerate(lines):
             self.line = line_idx + 1
             self.column = 1
@@ -529,25 +532,26 @@ class Lexer:
             if not stripped or stripped.startswith('//'):
                 continue
             
-            # 处理缩进
+            # 处理缩进（仅在括号外处理）
             indent_spaces = len(line) - len(stripped)
             self.current += indent_spaces
             self.column += indent_spaces
             
-            current_indent = self.indent_stack[-1]
-            
-            if indent_spaces > current_indent:
-                # 增加缩进
-                if (indent_spaces - current_indent) % self.INDENT_SIZE != 0:
-                    self.error(f"缩进必须是{self.INDENT_SIZE}个空格的倍数")
-                while self.indent_stack[-1] < indent_spaces:
-                    self.indent_stack.append(self.indent_stack[-1] + self.INDENT_SIZE)
-                    self.tokens.append(Token(TokenType.INDENT, self.indent_stack[-1], self.line, self.column))
-            elif indent_spaces < current_indent:
-                # 减少缩进
-                while self.indent_stack[-1] > indent_spaces:
-                    self.indent_stack.pop()
-                    self.tokens.append(Token(TokenType.DEDENT, self.indent_stack[-1], self.line, self.column))
+            if bracket_depth == 0:
+                current_indent = self.indent_stack[-1]
+                
+                if indent_spaces > current_indent:
+                    # 增加缩进
+                    if (indent_spaces - current_indent) % self.INDENT_SIZE != 0:
+                        self.error(f"缩进必须是{self.INDENT_SIZE}个空格的倍数")
+                    while self.indent_stack[-1] < indent_spaces:
+                        self.indent_stack.append(self.indent_stack[-1] + self.INDENT_SIZE)
+                        self.tokens.append(Token(TokenType.INDENT, self.indent_stack[-1], self.line, self.column))
+                elif indent_spaces < current_indent:
+                    # 减少缩进
+                    while self.indent_stack[-1] > indent_spaces:
+                        self.indent_stack.pop()
+                        self.tokens.append(Token(TokenType.DEDENT, self.indent_stack[-1], self.line, self.column))
             
             # 处理行内容
             line_lexer = Lexer(stripped)
@@ -556,12 +560,20 @@ class Lexer:
             line_lexer.indent_stack = self.indent_stack.copy()
             
             while not line_lexer.is_at_end():
+                # 跟踪括号深度
+                char = line_lexer.peek()
+                if char in '([{':
+                    bracket_depth += 1
+                elif char in ')]}':
+                    bracket_depth -= 1
+                
                 if not line_lexer.scan_token():
                     break
             
-            # 添加行尾换行
-            if line_lexer.tokens and line_lexer.tokens[-1].type != TokenType.NEWLINE:
-                line_lexer.tokens.append(Token(TokenType.NEWLINE, None, self.line, len(line) + 1))
+            # 添加行尾换行（仅在括号外）
+            if bracket_depth == 0:
+                if line_lexer.tokens and line_lexer.tokens[-1].type != TokenType.NEWLINE:
+                    line_lexer.tokens.append(Token(TokenType.NEWLINE, None, self.line, len(line) + 1))
             
             self.tokens.extend(line_lexer.tokens)
         
@@ -577,6 +589,7 @@ class Lexer:
         self.merge_compound_operators()
         
         return self.tokens
+
     
     def merge_compound_operators(self):
         """

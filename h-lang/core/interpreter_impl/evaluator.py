@@ -90,15 +90,10 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         """求值标识符（变量引用）"""
         try:
             value = self.env.get(expr.name)
-            # 如果标识符引用的是一个函数定义，自动调用它（无参数函数）
-            if isinstance(value, FunctionDefinition):
-                if len(value.parameters) == 0:
-                    return self._call_function(value, [])
-                else:
-                    raise HRuntimeError(f"Function '{expr.name}' requires {len(value.parameters)} arguments")
             return value
         except KeyError:
             raise HRuntimeError(f"Undefined variable: {expr.name}")
+
 
     
     def visit_global_variable(self, expr: GlobalVariable) -> HValue:
@@ -315,11 +310,16 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         
         if isinstance(target, Identifier):
             # 局部变量
+            print(f"[DEBUG] Assigning to {target.name}, value type: {type(value).__name__}")
             if self.env.exists(target.name):
+                print(f"[DEBUG] {target.name} exists, assigning")
                 self.env.assign(target.name, value)
             else:
                 # 新变量定义
+                print(f"[DEBUG] {target.name} is new, defining")
                 self.env.define(target.name, value)
+            print(f"[DEBUG] After assignment, env has: {list(self.env.variables.keys())}")
+
         
         elif isinstance(target, GlobalVariable):
             # 全局变量
@@ -373,7 +373,10 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     def visit_function_definition(self, stmt: FunctionDefinition):
         """执行函数定义"""
         # 将函数定义存储在环境中
+        print(f"[DEBUG] Defining function: {stmt.name}")
         self.env.define(stmt.name, stmt)
+        print(f"[DEBUG] Function {stmt.name} defined. Env now has: {list(self.env.variables.keys())}")
+
     
     def visit_return_statement(self, stmt: ReturnStatement):
         """执行返回语句"""
@@ -489,15 +492,23 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     
     def visit_program(self, stmt: Program):
         """执行程序"""
+        print(f"[DEBUG] visit_program: {len(stmt.functions)} functions, {len(stmt.statements)} statements")
+        print(f"[DEBUG] Function names: {list(stmt.functions.keys())}")
+        
         # 先注册所有函数定义
         for func in stmt.functions.values():
+            print(f"[DEBUG] Registering function from stmt.functions: {func.name}")
             self.env.define(func.name, func)
         
+        print(f"[DEBUG] After registering, env has: {list(self.env.variables.keys())}")
+        
         # 执行所有语句
-        for s in stmt.statements:
+        for i, s in enumerate(stmt.statements):
+            print(f"[DEBUG] Executing statement {i}: {type(s).__name__}")
             s.accept(self)
         
         return HNull()
+
     
     def get_output(self) -> List[str]:
         """获取输出缓冲区内容"""

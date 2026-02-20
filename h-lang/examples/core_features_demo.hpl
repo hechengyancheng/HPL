@@ -155,7 +155,8 @@ echo "Health after healing: " + health
 function sayHello:
     echo "Hello from function!"
 
-sayHello
+sayHello()
+
 
 // 带参数函数
 function greet(name):
@@ -298,8 +299,9 @@ set powResult to pow(2, 10)
 echo "2^10 = " + powResult
 
 // 随机数
-set randomNum to random
+set randomNum to random()
 echo "Random number: " + randomNum
+
 
 set randomInt to randomInt(1, 100)
 echo "Random integer (1-100): " + randomInt
