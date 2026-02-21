@@ -435,32 +435,3 @@ class ASTPrinter(ExpressionVisitor):
     def visit_grouping(self, expr: Grouping):
         self._print(f"Grouping")
         self._visit_children(expr.expression)
-
-
-# 测试代码
-if __name__ == "__main__":
-    # 构建一个示例 AST: (player.health + 10) > 50 and player has sword
-    ast = LogicalOperation(
-        left=Comparison(
-            left=BinaryOperation(
-                left=PropertyAccess(
-                    object=Identifier("player"),
-                    property_name="health"
-                ),
-                operator="+",
-                right=Literal(10)
-            ),
-            operator="is greater than",
-            right=Literal(50)
-        ),
-        operator="and",
-        right=MemberCheck(
-            operator="has",
-            left=Identifier("player"),
-            right=Identifier("sword")
-        )
-    )
-    
-    print("AST 结构:")
-    printer = ASTPrinter()
-    ast.accept(printer)

@@ -232,38 +232,3 @@ class EnvironmentChain:
     def create_function_scope(enclosing: Environment) -> Environment:
         """创建函数作用域"""
         return Environment(enclosing)
-
-
-# 测试代码
-if __name__ == "__main__":
-    # 创建全局环境
-    global_env = Environment()
-    
-    # 定义全局变量
-    global_env.define_global("score", HValue.from_python(0))
-    global_env.define_global("name", HValue.from_python("Player"))
-    
-    # 定义局部变量
-    global_env.define("x", HValue.from_python(10))
-    global_env.define("y", HValue.from_python(20))
-    
-    print("全局环境:")
-    print(f"  局部变量: {global_env.get_all_locals()}")
-    print(f"  全局变量: {global_env.get_all_globals()}")
-    
-    # 创建嵌套环境
-    local_env = Environment(global_env)
-    local_env.define("z", HValue.from_python(30))
-    
-    print("\\n嵌套环境:")
-    print(f"  局部变量: {local_env.get_all_locals()}")
-    print(f"  访问外层x: {local_env.get('x')}")
-    print(f"  访问全局$score: {local_env.get_global('score')}")
-    
-    # 测试赋值
-    local_env.assign("x", HValue.from_python(100))
-    print(f"\\n赋值后全局环境的x: {global_env.get('x')}")
-    
-    # 测试全局变量赋值
-    local_env.assign_global("score", HValue.from_python(50))
-    print(f"赋值后全局$score: {global_env.get_global('score')}")

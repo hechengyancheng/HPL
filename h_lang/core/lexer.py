@@ -696,31 +696,3 @@ def tokenize(source: str) -> List[Token]:
     """
     lexer = Lexer(source)
     return lexer.scan_tokens()
-
-
-# 测试代码
-if __name__ == "__main__":
-    test_code = '''
-// 测试代码
-set $counter to 0
-set $items to ["apple", "banana", "cherry"]
-
-if $counter is less than 10:
-    echo "Counter is low"
-else if $counter is less than 100:
-    echo "Counter is moderate"
-else:
-    echo "Counter is high"
-
-function greet(name):
-    echo "Hello, " + name
-
-ask "What is your name?" as userName
-'''
-    
-    try:
-        tokens = tokenize(test_code)
-        for token in tokens:
-            print(token)
-    except LexerError as e:
-        print(f"词法错误: {e}")
