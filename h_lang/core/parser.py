@@ -4,9 +4,10 @@ H-Language Parser
 """
 
 from typing import List, Optional
-from .lexer import Token, TokenType, tokenize
+from .lexer import Token, TokenType, tokenize, KEYWORDS
 from .ast.expressions import *
 from .ast.statements import *
+
 
 
 class ParseError(Exception):
@@ -111,16 +112,20 @@ class Parser:
                     continue
                 
                 stmt = self.declaration()
+
                 if stmt:
                     if isinstance(stmt, FunctionDefinition):
                         program.functions[stmt.name] = stmt
-                    program.statements.append(stmt)
+                    else:
+                        program.statements.append(stmt)
                     
             except ParseError as e:
+
                 print(f"Parse Error: {e}")
                 self.synchronize()
         
         return program
+
     
     def declaration(self) -> Optional[Statement]:
         """
@@ -224,6 +229,9 @@ class Parser:
         self.consume(TokenType.TO, "Expected 'to' after assignment target")
         value = self.expression()
         return Assignment(target, value)
+
+
+
     
     def lvalue(self) -> Expression:
         """
@@ -299,7 +307,19 @@ class Parser:
         """
         解析函数定义: function <name>([params]): ... 或 function <name>: ...
         """
-        name = self.consume(TokenType.IDENTIFIER, "Expected function name").value
+        # 函数名可以是标识符或关键字
+        if self.check(TokenType.IDENTIFIER):
+            name = self.advance().value
+        else:
+            # 尝试接受关键字作为函数名
+            name = None
+            for token_type in KEYWORDS.values():
+                if self.check(token_type):
+                    name = self.advance().lexeme
+                    break
+            if name is None:
+                raise ParseError("Expected function name", self.peek())
+
         
         # 解析可选的参数列表
         parameters = []
@@ -872,6 +892,31 @@ class Parser:
         
         return expr
     
+    def consume_identifier_or_keyword(self, message: str) -> str:
+        """消耗标识符或关键字作为名称"""
+        if self.check(TokenType.IDENTIFIER):
+            return self.advance().value
+        
+        # 尝试接受关键字作为名称
+        for token_type in KEYWORDS.values():
+            if self.check(token_type):
+                return self.advance().lexeme
+        
+        raise ParseError(message, self.peek())
+    
+    def _is_keyword_identifier(self) -> bool:
+        """检查当前token是否是可以作为标识符使用的关键字"""
+        # 这些关键字可以作为函数名使用（仅包含实际存在的关键字）
+        keyword_identifiers = [
+            TokenType.CONTAINS, TokenType.ADD, TokenType.REMOVE,
+        ]
+        return self.peek().type in keyword_identifiers
+
+    
+    def _consume_keyword_identifier(self) -> str:
+        """消耗一个关键字作为标识符"""
+        return self.advance().lexeme
+    
     def primary(self) -> Expression:
         """
         基本表达式: 字面量、标识符、括号表达式、函数调用
@@ -907,14 +952,30 @@ class Parser:
             # 属性访问链
             expr = Identifier(name)
             while self.match(TokenType.DOT):
-                property_name = self.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value
-                expr = PropertyAccess(expr, property_name)
+                # 属性名可以是标识符或关键字
+                property_name = self.consume_identifier_or_keyword("Expected property name after '.'")
                 
-                # 检查方法调用
-                if self.match(TokenType.LPAREN):
+                # 检查是否是方法调用（必须在创建PropertyAccess之前检查）
+                if self.check(TokenType.LPAREN):
+                    # 方法调用: obj.method(args)
                     return self.finish_method_call(expr, property_name)
+                
+                # 属性访问
+                expr = PropertyAccess(expr, property_name)
             
             return expr
+        
+        # 关键字作为函数名（如 contains, add 等）
+        if self._is_keyword_identifier():
+            name = self._consume_keyword_identifier()
+            
+            # 必须是函数调用形式
+            if self.match(TokenType.LPAREN):
+                return self.finish_call(name)
+            
+            # 如果不是函数调用，则作为普通标识符
+            return Identifier(name)
+
         
         # 括号表达式
         if self.match(TokenType.LPAREN):
@@ -927,6 +988,9 @@ class Parser:
             return self.list_literal()
         
         raise ParseError("Expected expression", self.peek())
+
+
+
     
     def finish_call(self, name: str) -> FunctionCall:
         """
@@ -946,6 +1010,8 @@ class Parser:
         """
         完成方法调用解析
         """
+        # Consume the opening '('
+        self.consume(TokenType.LPAREN, "Expected '(' after method name")
         arguments = []
         
         if not self.check(TokenType.RPAREN):
@@ -955,6 +1021,9 @@ class Parser:
         
         self.consume(TokenType.RPAREN, "Expected ')' after arguments")
         return MethodCall(object, method_name, arguments)
+
+
+
     
     def list_literal(self) -> ListLiteral:
         """

@@ -100,8 +100,48 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
     
     def _register_builtins(self):
         """注册内置函数"""
-        # 标准库动作指令作为内置函数注册
-        pass
+        # 字符串函数
+        self.builtins['substring'] = self._builtin_substring
+        self.builtins['split'] = self._builtin_split
+        self.builtins['trim'] = self._builtin_trim
+        self.builtins['upper'] = self._builtin_upper
+        self.builtins['lower'] = self._builtin_lower
+        self.builtins['contains'] = self._builtin_contains
+        self.builtins['startsWith'] = self._builtin_startsWith
+        self.builtins['endsWith'] = self._builtin_endsWith
+        self.builtins['replace'] = self._builtin_replace
+        
+        # 数学函数
+        self.builtins['abs'] = self._builtin_abs
+        self.builtins['floor'] = self._builtin_floor
+        self.builtins['ceil'] = self._builtin_ceil
+        self.builtins['round'] = self._builtin_round
+        self.builtins['max'] = self._builtin_max
+        self.builtins['min'] = self._builtin_min
+        self.builtins['sqrt'] = self._builtin_sqrt
+        self.builtins['pow'] = self._builtin_pow
+        
+        # 列表函数
+        self.builtins['sort'] = self._builtin_sort
+        self.builtins['reverse'] = self._builtin_reverse
+        self.builtins['join'] = self._builtin_join
+        self.builtins['indexOf'] = self._builtin_indexOf
+        self.builtins['append'] = self._builtin_append
+        self.builtins['removeAt'] = self._builtin_removeAt
+        
+        # 类型转换函数
+        self.builtins['toString'] = self._builtin_toString
+        self.builtins['toNumber'] = self._builtin_toNumber
+        self.builtins['toBoolean'] = self._builtin_toBoolean
+        self.builtins['toList'] = self._builtin_toList
+        
+        # 通用函数
+        self.builtins['len'] = self._builtin_len
+        self.builtins['type'] = self._builtin_type
+        self.builtins['range'] = self._builtin_range
+        self.builtins['random'] = self._builtin_random
+        self.builtins['randomInt'] = self._builtin_randomInt
+
 
     
     def set_builtin(self, name: str, func):
@@ -353,8 +393,14 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
                 return obj.lower()
             elif method_name == "trim":
                 return obj.trim()
+            elif method_name == "contains":
+                if len(expr.arguments) != 1:
+                    raise HRuntimeError("contains() takes exactly 1 argument")
+                search_str = expr.arguments[0].accept(self)
+                return HBoolean(obj.value.find(search_str.value) != -1)
         
         raise HRuntimeError(f"'{method_name}' is not a method of {obj.type_name()}")
+
     
     def visit_list_literal(self, expr: ListLiteral) -> HList:
         """求值列表字面量"""
@@ -917,8 +963,180 @@ class Evaluator(ExpressionVisitor, StatementVisitor):
         """获取所有测试结果"""
         return self.test_results.copy()
 
+    # ==================== 内置函数实现 ====================
+    
+    # 字符串函数
+    def _builtin_substring(self, s: HString, start: HNumber, length: HNumber) -> HString:
+        """获取子字符串"""
+        start_idx = int(start.value)
+        length_val = int(length.value)
+        return HString(s.value[start_idx:start_idx + length_val])
+    
+    def _builtin_split(self, s: HString, delimiter: HString) -> HList:
+        """分割字符串"""
+        parts = s.value.split(delimiter.value)
+        return HList([HString(p) for p in parts])
+    
+    def _builtin_trim(self, s: HString) -> HString:
+        """去除字符串首尾空白"""
+        return HString(s.value.strip())
+    
+    def _builtin_upper(self, s: HString) -> HString:
+        """转换为大写"""
+        return HString(s.value.upper())
+    
+    def _builtin_lower(self, s: HString) -> HString:
+        """转换为小写"""
+        return HString(s.value.lower())
+    
+    def _builtin_contains(self, s: HString, substr: HString) -> HBoolean:
+        """检查字符串是否包含子串"""
+        return HBoolean(substr.value in s.value)
+    
+    def _builtin_startsWith(self, s: HString, prefix: HString) -> HBoolean:
+        """检查字符串是否以指定前缀开头"""
+        return HBoolean(s.value.startswith(prefix.value))
+    
+    def _builtin_endsWith(self, s: HString, suffix: HString) -> HBoolean:
+        """检查字符串是否以指定后缀结尾"""
+        return HBoolean(s.value.endswith(suffix.value))
+    
+    def _builtin_replace(self, s: HString, old: HString, new: HString) -> HString:
+        """替换字符串中的子串"""
+        return HString(s.value.replace(old.value, new.value))
+    
+    # 数学函数
+    def _builtin_abs(self, n: HNumber) -> HNumber:
+        """绝对值"""
+        return HNumber(abs(n.value))
+    
+    def _builtin_floor(self, n: HNumber) -> HNumber:
+        """向下取整"""
+        import math
+        return HNumber(math.floor(n.value))
+    
+    def _builtin_ceil(self, n: HNumber) -> HNumber:
+        """向上取整"""
+        import math
+        return HNumber(math.ceil(n.value))
+    
+    def _builtin_round(self, n: HNumber) -> HNumber:
+        """四舍五入"""
+        return HNumber(round(n.value))
+    
+    def _builtin_max(self, *args: HNumber) -> HNumber:
+        """最大值"""
+        return HNumber(max(arg.value for arg in args))
+    
+    def _builtin_min(self, *args: HNumber) -> HNumber:
+        """最小值"""
+        return HNumber(min(arg.value for arg in args))
+    
+    def _builtin_sqrt(self, n: HNumber) -> HNumber:
+        """平方根"""
+        import math
+        return HNumber(math.sqrt(n.value))
+    
+    def _builtin_pow(self, base: HNumber, exp: HNumber) -> HNumber:
+        """幂运算"""
+        return HNumber(base.value ** exp.value)
+    
+    # 列表函数
+    def _builtin_sort(self, lst: HList, reverse: HBoolean = None) -> HList:
+        """排序列表"""
+        reverse_val = reverse.value if reverse else False
+        sorted_elements = sorted(lst.value, key=lambda x: x.value, reverse=reverse_val)
+        return HList(sorted_elements)
+    
+    def _builtin_reverse(self, lst: HList) -> HList:
+        """反转列表"""
+        return HList(lst.value[::-1])
+    
+    def _builtin_join(self, lst: HList, separator: HString) -> HString:
+        """连接列表元素为字符串"""
+        return HString(separator.value.join(str(elem.value) for elem in lst.value))
+    
+    def _builtin_indexOf(self, lst: HList, item: HValue) -> HNumber:
+        """查找元素索引"""
+        for i, elem in enumerate(lst.value):
+            if elem.equals(item).value:
+                return HNumber(i)
+        return HNumber(-1)
+    
+    def _builtin_append(self, lst: HList, item: HValue) -> HList:
+        """添加元素到列表"""
+        new_list = HList(lst.value + [item])
+        return new_list
+    
+    def _builtin_removeAt(self, lst: HList, index: HNumber) -> HList:
+        """移除指定索引的元素"""
+        idx = int(index.value)
+        new_elements = lst.value[:idx] + lst.value[idx+1:]
+        return HList(new_elements)
+    
+    # 类型转换函数
+    def _builtin_toString(self, value: HValue) -> HString:
+        """转换为字符串"""
+        return HString(value.to_string())
+    
+    def _builtin_toNumber(self, value: HValue) -> HNumber:
+        """转换为数字"""
+        if isinstance(value, HString):
+            try:
+                return HNumber(float(value.value))
+            except ValueError:
+                raise HRuntimeError(f"Cannot convert '{value.value}' to number")
+        elif isinstance(value, HNumber):
+            return value
+        elif isinstance(value, HBoolean):
+            return HNumber(1.0 if value.value else 0.0)
+        raise HRuntimeError(f"Cannot convert {value.type_name()} to number")
+    
+    def _builtin_toBoolean(self, value: HValue) -> HBoolean:
+        """转换为布尔值"""
+        return HBoolean(value.is_truthy())
+    
+    def _builtin_toList(self, value: HValue) -> HList:
+        """转换为列表"""
+        if isinstance(value, HString):
+            return HList([HString(c) for c in value.value])
+        elif isinstance(value, HList):
+            return value
+        raise HRuntimeError(f"Cannot convert {value.type_name()} to list")
+    
+    # 通用函数
+    def _builtin_len(self, value: HValue) -> HNumber:
+        """获取长度"""
+        if isinstance(value, HString):
+            return HNumber(len(value.value))
+        elif isinstance(value, HList):
+            return HNumber(len(value.value))
+        raise HRuntimeError(f"Cannot get length of {value.type_name()}")
+    
+    def _builtin_type(self, value: HValue) -> HString:
+        """获取类型名称"""
+        return HString(value.type_name())
+    
+    def _builtin_range(self, start: HNumber, end: HNumber, step: HNumber = None) -> HList:
+        """生成范围列表"""
+        step_val = int(step.value) if step else 1
+        start_val = int(start.value)
+        end_val = int(end.value)
+        return HList([HNumber(i) for i in range(start_val, end_val, step_val)])
+    
+    def _builtin_random(self) -> HNumber:
+        """生成0-1之间的随机数"""
+        import random
+        return HNumber(random.random())
+    
+    def _builtin_randomInt(self, min_val: HNumber, max_val: HNumber) -> HNumber:
+        """生成指定范围内的随机整数"""
+        import random
+        return HNumber(random.randint(int(min_val.value), int(max_val.value)))
+
 
 # 便捷函数
+
 def evaluate(program: Program, environment: Optional[Environment] = None) -> Any:
     """
     便捷函数：执行程序
