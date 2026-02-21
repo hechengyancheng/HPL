@@ -1,0 +1,414 @@
+// ============================================
+// H语言冒险游戏示例
+// The Lost Treasure of Dragon Mountain
+// ============================================
+
+// ============================================
+// 全局游戏状态
+// ============================================
+
+set $player_name to "Adventurer"
+set $player_health to 100
+set $player_max_health to 100
+set $player_gold to 0
+set $player_xp to 0
+set $player_level to 1
+set $inventory to []
+set $current_location to "Village"
+set $game_turn to 0
+set $game_won to false
+
+// 任务状态
+set $has_map to false
+set $has_key to false
+set $has_sword to false
+set $has_potion to false
+set $dragon_defeated to false
+set $treasure_found to false
+
+// ============================================
+// 物品定义
+// ============================================
+
+// 基础物品类型
+item Item:
+    name: "Unknown Item"
+    description: "An unknown item"
+    value: 0
+    weight: 1
+
+// 武器类型
+item Weapon extends Item:
+    damage: 5
+    durability: 100
+    
+    on action: player uses weapon:
+        echo "You swing the " + name + "!"
+        decrease durability by 1
+        if durability is less than 20:
+            echo "Warning: " + name + " is getting dull!"
+
+// 消耗品类型
+item Consumable extends Item:
+    effect: "none"
+    uses: 1
+
+// 具体物品：铁剑
+item IronSword extends Weapon:
+    name: "Iron Sword"
+    description: "A sturdy iron sword"
+    damage: 15
+    value: 50
+    weight: 5
+
+// 具体物品：生命药水
+item HealthPotion extends Consumable:
+    name: "Health Potion"
+    description: "Restores 30 health points"
+    effect: "heal"
+    value: 20
+    weight: 1
+    
+    on action: player uses potion:
+        if $player_health is less than $player_max_health:
+            increase $player_health by 30
+            if $player_health is greater than $player_max_health:
+                set $player_health to $player_max_health
+            echo "You drink the potion. Health: " + $player_health + "/" + $player_max_health
+        else:
+            echo "Your health is already full!"
+
+// 具体物品：古老地图
+item AncientMap extends Item:
+    name: "Ancient Map"
+    description: "A map showing the way to Dragon Mountain"
+    value: 100
+    weight: 1
+    
+    on action: player uses map:
+        echo "The map shows a path from the Forest to the Mountain Cave..."
+        echo "1. Go to the Dark Forest"
+        echo "2. Find the hidden entrance"
+        echo "3. Climb to the Dragon's Lair"
+
+// 具体物品：宝箱钥匙
+item ChestKey extends Item:
+    name: "Ornate Key"
+    description: "A key that opens the treasure chest"
+    value: 50
+    weight: 1
+
+// ============================================
+// 角色定义
+// ============================================
+
+// 基础角色类型
+character Character:
+    name: "Unknown"
+    health: 50
+    max_health: 50
+    attack: 5
+    defense: 2
+    
+    on state: health is 0:
+        echo name + " has been defeated!"
+
+// 敌人类型
+character Enemy extends Character:
+    xp_reward: 10
+    gold_reward: 5
+    
+    on state: health is 0:
+        echo name + " is defeated!"
+        increase $player_xp by xp_reward
+        increase $player_gold by gold_reward
+        echo "You gained " + xp_reward + " XP and " + gold_reward + " gold!"
+
+// 具体敌人：史莱姆
+character Slime extends Enemy:
+    name: "Green Slime"
+    health: 20
+    max_health: 20
+    attack: 3
+    defense: 0
+    xp_reward: 5
+    gold_reward: 2
+
+// 具体敌人：哥布林
+character Goblin extends Enemy:
+    name: "Goblin Warrior"
+    health: 35
+    max_health: 35
+    attack: 8
+    defense: 2
+    xp_reward: 10
+    gold_reward: 5
+
+// 具体敌人：龙（Boss）
+character Dragon extends Enemy:
+    name: "Ancient Dragon"
+    health: 200
+    max_health: 200
+    attack: 25
+    defense: 10
+    xp_reward: 500
+    gold_reward: 1000
+    
+    on state: health is 0:
+        echo "The Ancient Dragon falls with a mighty roar!"
+        echo "You have defeated the dragon!"
+        set $dragon_defeated to true
+        increase $player_xp by xp_reward
+        increase $player_gold by gold_reward
+
+// 友好NPC：商人
+character Merchant extends Character:
+    name: "Traveling Merchant"
+    health: 30
+    attack: 0
+    defense: 0
+
+// 友好NPC：村长
+character VillageChief extends Character:
+    name: "Village Chief"
+    health: 40
+    attack: 0
+    defense: 0
+
+// ============================================
+// 房间/场景定义
+// ============================================
+
+// 村庄（起始区域）
+room Village:
+    description: "A peaceful village surrounded by forests"
+    
+    exit north to Forest
+    exit east to Shop
+    exit south to VillageChiefHouse
+    
+    on game start:
+        echo "\n========================================"
+        echo "  THE LOST TREASURE OF DRAGON MOUNTAIN"
+        echo "========================================\n"
+        echo "Welcome, brave " + $player_name + "!"
+        echo "You are in a small village at the edge of the wilderness."
+        echo "Rumors speak of a great treasure hidden in Dragon Mountain..."
+        echo "But beware, a fearsome dragon guards it!\n"
+        echo "Your adventure begins here.\n"
+        echo "Commands: go [direction], look, inventory, use [item], talk [npc]"
+        echo "========================================\n"
+    
+    on every turn:
+        increase $game_turn by 1
+        if $game_turn is 1:
+            echo "You are in the village square."
+            echo "Villagers are going about their daily business."
+        else if $game_turn is 2:
+            echo "A merchant waves at you from the east."
+            echo "The village chief's house is to the south."
+
+// 村长家
+room VillageChiefHouse:
+    description: "The village chief's modest home"
+    
+    exit north to Village
+    
+    on game start:
+        echo "\nYou enter the village chief's house."
+        echo "The chief looks at you with wise eyes."
+    
+    on action: player talks chief:
+        if $has_map is false:
+            echo "\nChief: 'Ah, a brave adventurer! I have something for you.'"
+            echo "Chief: 'Take this ancient map. It shows the way to Dragon Mountain.'"
+            echo "Chief: 'But be careful, the path is dangerous!'"
+            set $has_map to true
+            echo "\n[You received the Ancient Map!]"
+        else:
+            echo "\nChief: 'Good luck on your quest, brave adventurer!'"
+
+// 商店
+room Shop:
+    description: "A small shop with various goods"
+    
+    exit west to Village
+    
+    on game start:
+        echo "\nYou enter the merchant's shop."
+        echo "The merchant greets you warmly."
+    
+    on action: player talks merchant:
+        echo "\nMerchant: 'Welcome! I have fine goods for sale:'"
+        echo "  1. Health Potion - 20 gold"
+        echo "  2. Iron Sword - 50 gold"
+        echo "  3. Leave shop"
+        
+        dialog merchant "What would you like to buy?":
+            option "Buy Health Potion (20 gold)" -> buy_potion
+            option "Buy Iron Sword (50 gold)" -> buy_sword
+            option "Leave" -> leave_shop
+
+// 森林
+room Forest:
+    description: "A dark and mysterious forest"
+    
+    exit south to Village
+    exit east to Cave if $has_map
+    exit north to DeepForest
+    
+    on game start:
+        echo "\nYou enter the forest."
+        echo "Tall trees block out most of the sunlight."
+    
+    on every turn:
+        if $game_turn is 3:
+            echo "You hear rustling in the bushes..."
+            echo "A Green Slime appears!"
+            echo "Combat begins!"
+
+// 森林深处
+room DeepForest:
+    description: "The deepest part of the forest"
+    
+    exit south to Forest
+    
+    on game start:
+        echo "\nYou venture deeper into the forest."
+        echo "The trees here are ancient and twisted."
+    
+    on event: random encounter:
+        echo "\nA Goblin Warrior jumps out from behind a tree!"
+        echo "It attacks you!"
+        decrease $player_health by 10
+        echo "You took 10 damage! Health: " + $player_health
+
+// 山洞入口
+room Cave:
+    description: "The entrance to a dark cave"
+    
+    exit west to Forest
+    exit north to MountainPath
+    
+    on game start:
+        echo "\nFollowing the map, you find a hidden cave entrance."
+        echo "Cold air flows from the darkness within."
+        echo "This must be the way to Dragon Mountain!"
+
+// 山道
+room MountainPath:
+    description: "A treacherous mountain path"
+    
+    exit south to Cave
+    exit up to DragonLair
+    
+    on game start:
+        echo "\nYou climb the narrow mountain path."
+        echo "The wind howls around you."
+        echo "You can see the dragon's lair above..."
+
+// 龙之巢穴（最终区域）
+room DragonLair:
+    description: "The lair of the Ancient Dragon"
+    
+    exit down to MountainPath
+    
+    on game start:
+        echo "\n========================================"
+        echo "You have reached the Dragon's Lair!"
+        echo "========================================"
+        echo "Gold and treasure are piled everywhere."
+        echo "But the Ancient Dragon blocks your path!"
+        echo "\nDragon: 'Who dares enter my lair? Prepare to face my wrath!'"
+        echo "\n========================================"
+        echo "FINAL BATTLE!"
+        echo "========================================"
+    
+    on action: player uses sword on dragon:
+        if $has_sword is true:
+            echo "\nYou charge at the dragon with your sword!"
+            echo "The dragon breathes fire!"
+            decrease $player_health by 20
+            echo "You took 20 damage! Health: " + $player_health
+            
+            if $player_health is greater than 0:
+                echo "You strike the dragon with all your might!"
+                echo "The dragon roars in pain!"
+                decrease Dragon.health by 50
+                echo "Dragon health: " + Dragon.health
+                
+                if Dragon.health is less than 100:
+                    echo "The dragon is weakening!"
+                
+                if Dragon.health is 0:
+                    echo "\n========================================"
+                    echo "VICTORY! You have defeated the dragon!"
+                    echo "========================================"
+            else:
+                echo "\nYou have fallen in battle..."
+                echo "Game Over."
+                end game
+        else:
+            echo "\nYou don't have a weapon!"
+            echo "The dragon's fire overwhelms you..."
+            echo "Game Over."
+            end game
+    
+    on state: $dragon_defeated is true:
+        echo "\nWith the dragon defeated, you approach the treasure..."
+        echo "You found the legendary treasure of Dragon Mountain!"
+        set $treasure_found to true
+        increase $player_gold by 5000
+        echo "You gained 5000 gold!"
+        echo "\n========================================"
+        echo "CONGRATULATIONS! YOU HAVE WON!"
+        echo "========================================"
+        echo "Final Stats:"
+        echo "  Health: " + $player_health
+        echo "  Gold: " + $player_gold
+        echo "  XP: " + $player_xp
+        echo "  Turns: " + $game_turn
+        echo "\nThank you for playing!"
+        echo "========================================"
+        set $game_won to true
+        end game
+
+// ============================================
+// 游戏状态事件
+// ============================================
+
+on state: $player_health is less than 30:
+    echo "\n*** WARNING: Low Health! ***"
+    echo "Find healing or rest soon!"
+
+on state: $player_xp is greater than 100:
+    set $player_level to 2
+    set $player_max_health to 150
+    echo "\n*** LEVEL UP! ***"
+    echo "You are now level 2!"
+    echo "Max health increased to 150!"
+
+// ============================================
+// 游戏初始化
+// ============================================
+
+echo "\nInitializing game world..."
+echo "Creating items..."
+echo "Creating characters..."
+echo "Creating locations..."
+echo "Game world ready!\n"
+
+// 初始物品
+set $has_potion to true
+echo "[You start with a Health Potion]"
+
+// 显示初始状态
+echo "\n--- Player Status ---"
+echo "Name: " + $player_name
+echo "Health: " + $player_health + "/" + $player_max_health
+echo "Level: " + $player_level
+echo "Gold: " + $player_gold
+echo "Location: " + $current_location
+echo "---------------------\n"
+
+echo "Type 'start' to begin your adventure!"

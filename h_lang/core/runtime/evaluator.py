@@ -1,0 +1,1192 @@
+"""
+H-Language Evaluator
+H语言求值器 - 执行AST
+"""
+
+from typing import Any, Dict, List, Optional
+from ..ast.expressions import *
+from ..ast.statements import *
+from ..types.primitive import *
+from ..types.operations import Operations, COMPARISON_OPERATORS
+
+from .environment import Environment
+from .control_flow import ReturnException, HRuntimeError, EndGameException
+
+# 导入标准库动作 - 处理模块和包执行两种情况
+import sys
+import os
+
+# 尝试多种导入策略
+_stdlib_imported = False
+
+# 策略1：相对导入（在具有正确上下文的包中运行时）
+if not _stdlib_imported:
+    try:
+        from ...stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError:
+        pass
+
+# 策略2：直接路径操作 - 将 h-lang 添加到路径
+if not _stdlib_imported:
+    try:
+        # 获取包含此文件的目录
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # 向上到 h-lang 目录（core/runtime -> core -> h-lang）
+        h_lang_dir = os.path.dirname(os.path.dirname(current_dir))
+        
+        if h_lang_dir not in sys.path:
+            sys.path.insert(0, h_lang_dir)
+        
+        from stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError:
+        pass
+
+# 策略3：尝试项目根目录
+if not _stdlib_imported:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # 向上到项目根目录（h-lang 的父目录）
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        
+        # 尝试导入，假设 h-lang 在路径中
+        h_lang_path = os.path.join(project_root, 'h-lang')
+        if h_lang_path not in sys.path:
+            sys.path.insert(0, h_lang_path)
+        
+        from stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError:
+        pass
+
+# 策略4：最后手段 - 检查是否已在路径中
+if not _stdlib_imported:
+    try:
+        from stdlib.actions import StdlibActions, ActionContext
+        _stdlib_imported = True
+    except ImportError as e:
+        raise ImportError(f"Could not import StdlibActions from any location. sys.path: {sys.path[:3]}... Error: {e}")
+
+
+class Evaluator(ExpressionVisitor, StatementVisitor):
+    """
+    H语言求值器
+    
+    实现表达式和语句的执行
+    使用访问者模式遍历AST
+    """
+    
+    def __init__(self, environment: Optional[Environment] = None):
+        self.env = environment if environment else Environment()
+        self.output_buffer: List[str] = []  # 输出缓冲区
+        self.input_provider = input  # 输入函数（可替换为mock）
+        
+        # 内置函数注册表
+        self.builtins: Dict[str, Any] = {}
+        
+        # 标准库动作上下文
+        self.action_context = ActionContext()
+        self.stdlib_actions = StdlibActions(self.action_context)
+        
+        # 测试结果跟踪
+        self.test_results: List[Dict[str, Any]] = []
+        self.current_test: Optional[str] = None
+        
+        self._register_builtins()
+    
+    def _register_builtins(self):
+        """注册内置函数"""
+        # 字符串函数
+        self.builtins['substring'] = self._builtin_substring
+        self.builtins['split'] = self._builtin_split
+        self.builtins['trim'] = self._builtin_trim
+        self.builtins['upper'] = self._builtin_upper
+        self.builtins['lower'] = self._builtin_lower
+        self.builtins['contains'] = self._builtin_contains
+        self.builtins['startsWith'] = self._builtin_startsWith
+        self.builtins['endsWith'] = self._builtin_endsWith
+        self.builtins['replace'] = self._builtin_replace
+        
+        # 数学函数
+        self.builtins['abs'] = self._builtin_abs
+        self.builtins['floor'] = self._builtin_floor
+        self.builtins['ceil'] = self._builtin_ceil
+        self.builtins['round'] = self._builtin_round
+        self.builtins['max'] = self._builtin_max
+        self.builtins['min'] = self._builtin_min
+        self.builtins['sqrt'] = self._builtin_sqrt
+        self.builtins['pow'] = self._builtin_pow
+        
+        # 列表函数
+        self.builtins['sort'] = self._builtin_sort
+        self.builtins['reverse'] = self._builtin_reverse
+        self.builtins['join'] = self._builtin_join
+        self.builtins['indexOf'] = self._builtin_indexOf
+        self.builtins['append'] = self._builtin_append
+        self.builtins['removeAt'] = self._builtin_removeAt
+        
+        # 类型转换函数
+        self.builtins['toString'] = self._builtin_toString
+        self.builtins['toNumber'] = self._builtin_toNumber
+        self.builtins['toBoolean'] = self._builtin_toBoolean
+        self.builtins['toList'] = self._builtin_toList
+        
+        # 通用函数
+        self.builtins['len'] = self._builtin_len
+        self.builtins['type'] = self._builtin_type
+        self.builtins['range'] = self._builtin_range
+        self.builtins['random'] = self._builtin_random
+        self.builtins['randomInt'] = self._builtin_randomInt
+
+
+    
+    def set_builtin(self, name: str, func):
+        """设置内置函数"""
+        self.builtins[name] = func
+    
+    def evaluate(self, program: Program) -> Any:
+        """
+        执行程序
+        
+        Args:
+            program: 程序AST
+            
+        Returns:
+            程序执行结果
+        """
+        try:
+            return program.accept(self)
+        except ReturnException as e:
+            # 顶层return返回其值
+            return e.value
+        except Exception as e:
+            raise HRuntimeError(f"Runtime error: {str(e)}")
+    
+    # ==================== 表达式求值 ====================
+    
+    def visit_literal(self, expr: Literal) -> HValue:
+        """求值字面量"""
+        value = expr.value
+        
+        if value is None:
+            return HNull()
+        elif isinstance(value, bool):
+            return HBoolean(value)
+        elif isinstance(value, (int, float)):
+            return HNumber(float(value))
+        elif isinstance(value, str):
+            return HString(value)
+        elif isinstance(value, list):
+            return HList([self._to_hvalue(elem) for elem in value])
+        
+        # 如果已经是HValue，直接返回
+        if isinstance(value, HValue):
+            return value
+        
+        raise HRuntimeError(f"Unknown literal type: {type(value)}")
+    
+    def _to_hvalue(self, value: Any) -> HValue:
+        """将Python值转换为HValue"""
+        if isinstance(value, HValue):
+            return value
+        return from_python(value)
+    
+    def visit_identifier(self, expr: Identifier) -> HValue:
+        """求值标识符（变量引用）"""
+        try:
+            value = self.env.get(expr.name)
+            return value
+        except KeyError:
+            raise HRuntimeError(f"Undefined variable: {expr.name}")
+
+
+    
+    def visit_global_variable(self, expr: GlobalVariable) -> HValue:
+        """求值全局变量"""
+        try:
+            return self.env.get_global(expr.name)
+        except KeyError:
+            raise HRuntimeError(f"Undefined global variable: ${expr.name}")
+    
+    def visit_property_access(self, expr: PropertyAccess) -> HValue:
+        """求值属性访问"""
+        obj = expr.object.accept(self)
+        return Operations.get_property(obj, expr.property_name)
+    
+    def visit_binary_operation(self, expr: BinaryOperation) -> HValue:
+        """求值二元运算"""
+        left = expr.left.accept(self)
+        right = expr.right.accept(self)
+        
+        if expr.operator == '+':
+            return Operations.add(left, right)
+        elif expr.operator == '-':
+            return Operations.subtract(left, right)
+        elif expr.operator == '*':
+            return Operations.multiply(left, right)
+        elif expr.operator == '/':
+            return Operations.divide(left, right)
+        elif expr.operator == '%':
+            return Operations.modulo(left, right)
+        
+        raise HRuntimeError(f"Unknown binary operator: {expr.operator}")
+    
+    def visit_comparison(self, expr: Comparison) -> HBoolean:
+        """求值比较运算"""
+        left = expr.left.accept(self)
+        right = expr.right.accept(self)
+        
+        op = expr.operator
+        if op in COMPARISON_OPERATORS:
+            return COMPARISON_OPERATORS[op](left, right)
+        
+        raise HRuntimeError(f"Unknown comparison operator: {op}")
+    
+    def visit_logical_operation(self, expr: LogicalOperation) -> HBoolean:
+        """求值逻辑运算"""
+        left = expr.left.accept(self)
+        
+        if expr.operator == 'and':
+            # 短路求值
+            if not left.is_truthy():
+                return HBoolean(False)
+            right = expr.right.accept(self)
+            return HBoolean(right.is_truthy())
+        
+        elif expr.operator == 'or':
+            # 短路求值
+            if left.is_truthy():
+                return HBoolean(True)
+            right = expr.right.accept(self)
+            return HBoolean(right.is_truthy())
+        
+        raise HRuntimeError(f"Unknown logical operator: {expr.operator}")
+    
+    def visit_unary_operation(self, expr: UnaryOperation) -> HValue:
+        """求值一元运算"""
+        operand = expr.operand.accept(self)
+        
+        if expr.operator == '-':
+            return Operations.negate(operand)
+        elif expr.operator == 'not':
+            return Operations.logical_not(operand)
+        
+        raise HRuntimeError(f"Unknown unary operator: {expr.operator}")
+    
+    def visit_member_check(self, expr: MemberCheck) -> HBoolean:
+        """求值成员检查"""
+        left = expr.left.accept(self)
+        right = expr.right.accept(self)
+        
+        if expr.operator == 'has':
+            if isinstance(right, HString):
+                return Operations.has(left, right)
+            raise HRuntimeError(f"'has' operator requires string property name")
+        
+        elif expr.operator == 'is in':
+            return Operations.is_in(left, right)
+        
+        raise HRuntimeError(f"Unknown member check operator: {expr.operator}")
+    
+    def visit_list_index(self, expr: ListIndex) -> HValue:
+        """求值列表索引访问"""
+        lst = expr.list_expr.accept(self)
+        index = expr.index.accept(self)
+        return Operations.list_index(lst, index)
+    
+    def visit_list_slice(self, expr: ListSlice) -> HList:
+        """求值列表切片"""
+        lst = expr.list_expr.accept(self)
+        
+        start = None
+        end = None
+        
+        if expr.start:
+            start = expr.start.accept(self)
+        if expr.end:
+            end = expr.end.accept(self)
+        
+        return Operations.list_slice(lst, start, end)
+    
+    def visit_function_call(self, expr: FunctionCall) -> HValue:
+        """求值函数调用"""
+        # 检查是否是内置函数
+        if expr.function_name in self.builtins:
+            # 求值参数
+            args = [arg.accept(self) for arg in expr.arguments]
+            return self.builtins[expr.function_name](*args)
+        
+        # 用户定义函数
+        try:
+            func = self.env.get(expr.function_name)
+        except KeyError:
+            raise HRuntimeError(f"Undefined function: {expr.function_name}")
+        
+        # 这里需要函数对象的支持
+        # 简化处理：假设函数是FunctionDefinition
+        if isinstance(func, FunctionDefinition):
+            return self._call_function(func, expr.arguments)
+        
+        raise HRuntimeError(f"'{expr.function_name}' is not a function")
+    
+    def _call_function(self, func: FunctionDefinition, arguments: List[Expression]) -> HValue:
+        """调用用户定义函数"""
+        # 创建新环境
+        func_env = Environment(self.env)
+        
+        # 绑定参数
+        if len(arguments) != len(func.parameters):
+            raise HRuntimeError(f"Function {func.name} expects {len(func.parameters)} arguments, got {len(arguments)}")
+        
+        for param_name, arg_expr in zip(func.parameters, arguments):
+            arg_value = arg_expr.accept(self)
+            func_env.define(param_name, arg_value)
+        
+        # 保存当前环境并切换
+        previous_env = self.env
+        self.env = func_env
+        
+        try:
+            # 执行函数体
+            result = HNull()
+            for stmt in func.body:
+                stmt.accept(self)
+            return result
+        except ReturnException as ret:
+            return ret.value
+        finally:
+            # 恢复环境
+            self.env = previous_env
+    
+    def visit_method_call(self, expr: MethodCall) -> HValue:
+        """求值方法调用"""
+        obj = expr.object.accept(self)
+        
+        # 这里需要方法调用支持
+        # 简化处理：查找内置方法
+        method_name = expr.method_name
+        
+        # 列表方法
+        if isinstance(obj, HList):
+            if method_name == "append":
+                if len(expr.arguments) != 1:
+                    raise HRuntimeError("append() takes exactly 1 argument")
+                elem = expr.arguments[0].accept(self)
+                return obj.append(elem)
+            elif method_name == "removeAt":
+                if len(expr.arguments) != 1:
+                    raise HRuntimeError("removeAt() takes exactly 1 argument")
+                index = expr.arguments[0].accept(self)
+                if not isinstance(index, HNumber):
+                    raise HRuntimeError("removeAt() index must be a number")
+                return obj.remove_at(index.to_int())
+        
+        # 字符串方法
+        if isinstance(obj, HString):
+            if method_name == "upper":
+                return obj.upper()
+            elif method_name == "lower":
+                return obj.lower()
+            elif method_name == "trim":
+                return obj.trim()
+            elif method_name == "contains":
+                if len(expr.arguments) != 1:
+                    raise HRuntimeError("contains() takes exactly 1 argument")
+                search_str = expr.arguments[0].accept(self)
+                return HBoolean(obj.value.find(search_str.value) != -1)
+        
+        raise HRuntimeError(f"'{method_name}' is not a method of {obj.type_name()}")
+
+    
+    def visit_list_literal(self, expr: ListLiteral) -> HList:
+        """求值列表字面量"""
+        elements = [elem.accept(self) for elem in expr.elements]
+        return HList(elements)
+    
+    def visit_grouping(self, expr: Grouping) -> HValue:
+        """求值括号表达式"""
+        return expr.expression.accept(self)
+    
+    # ==================== 语句执行 ====================
+    
+    def visit_expression_statement(self, stmt: ExpressionStatement):
+        """执行表达式语句"""
+        stmt.expression.accept(self)
+    
+    def visit_assignment(self, stmt: Assignment):
+        """执行赋值语句"""
+        value = stmt.value.accept(self)
+        
+        target = stmt.target
+        
+        if isinstance(target, Identifier):
+            # 局部变量
+            if self.env.exists(target.name):
+                self.env.assign(target.name, value)
+            else:
+                # 新变量定义
+                self.env.define(target.name, value)
+        
+        elif isinstance(target, GlobalVariable):
+            # 全局变量
+            self.env.assign_global(target.name, value)
+        
+        elif isinstance(target, PropertyAccess):
+            # 属性赋值
+            obj = target.object.accept(self)
+            Operations.set_property(obj, target.property_name, value)
+        
+        elif isinstance(target, ListIndex):
+            # 列表索引赋值
+            lst = target.list_expr.accept(self)
+            index = target.index.accept(self)
+            Operations.list_set(lst, index, value)
+        
+        else:
+            raise HRuntimeError(f"Invalid assignment target: {type(target)}")
+    
+    def visit_if_statement(self, stmt: IfStatement):
+        """执行条件语句"""
+        condition = stmt.condition.accept(self)
+        
+        if condition.is_truthy():
+            for s in stmt.then_branch:
+                s.accept(self)
+            return
+        
+        # 检查elif分支
+        for elif_condition, elif_body in stmt.elif_branches:
+            if elif_condition.accept(self).is_truthy():
+                for s in elif_body:
+                    s.accept(self)
+                return
+        
+        # 执行else分支
+        if stmt.else_branch:
+            for s in stmt.else_branch:
+                s.accept(self)
+    
+    def visit_while_statement(self, stmt: WhileStatement):
+        """执行while循环"""
+        while stmt.condition.accept(self).is_truthy():
+            try:
+                for s in stmt.body:
+                    s.accept(self)
+            except ReturnException:
+                raise  # 向上传播return
+            # 注意：break/continue需要额外支持
+    
+    def visit_function_definition(self, stmt: FunctionDefinition):
+        """执行函数定义"""
+        # 将函数定义存储在环境中
+        self.env.define(stmt.name, stmt)
+    
+    def visit_return_statement(self, stmt: ReturnStatement):
+        """执行返回语句"""
+        value = HNull()
+        if stmt.value:
+            value = stmt.value.accept(self)
+        raise ReturnException(value)
+    
+    def visit_ask_statement(self, stmt: AskStatement):
+        """执行输入语句"""
+        # 显示提示
+        if stmt.prompt:
+            prompt_value = stmt.prompt.accept(self)
+            prompt_str = prompt_value.to_string()
+        else:
+            prompt_str = ""
+        
+        # 获取输入
+        try:
+            user_input = self.input_provider(prompt_str)
+        except EOFError:
+            user_input = ""
+        
+        # 存储到变量
+        if stmt.variable:
+            # 输入默认为字符串
+            input_value = HString(user_input)
+            if self.env.exists(stmt.variable):
+                self.env.assign(stmt.variable, input_value)
+            else:
+                self.env.define(stmt.variable, input_value)
+        
+        return HString(user_input)
+    
+    def visit_echo_statement(self, stmt: EchoStatement):
+        """执行输出语句"""
+        value = stmt.expression.accept(self)
+        self.stdlib_actions.echo(value)
+        output = value.to_string()
+        self.output_buffer.append(output)
+
+    
+    def visit_increase_statement(self, stmt: IncreaseStatement):
+        """执行增加语句"""
+        target = stmt.target
+        amount = stmt.amount.accept(self)
+        
+        if isinstance(target, Identifier):
+            current = self.env.get(target.name)
+            new_value = self.stdlib_actions.increase_by(current, amount)
+            self.env.assign(target.name, new_value)
+        
+        elif isinstance(target, GlobalVariable):
+            current = self.env.get_global(target.name)
+            new_value = self.stdlib_actions.increase_by(current, amount)
+            self.env.assign_global(target.name, new_value)
+        
+        elif isinstance(target, PropertyAccess):
+            obj = target.object.accept(self)
+            current = Operations.get_property(obj, target.property_name)
+            new_value = self.stdlib_actions.increase_by(current, amount)
+            Operations.set_property(obj, target.property_name, new_value)
+        
+        else:
+            raise HRuntimeError(f"Invalid increase target: {type(target)}")
+    
+    def visit_decrease_statement(self, stmt: DecreaseStatement):
+        """执行减少语句"""
+        target = stmt.target
+        amount = stmt.amount.accept(self)
+        
+        if isinstance(target, Identifier):
+            current = self.env.get(target.name)
+            new_value = self.stdlib_actions.decrease_by(current, amount)
+            self.env.assign(target.name, new_value)
+        
+        elif isinstance(target, GlobalVariable):
+            current = self.env.get_global(target.name)
+            new_value = self.stdlib_actions.decrease_by(current, amount)
+            self.env.assign_global(target.name, new_value)
+        
+        elif isinstance(target, PropertyAccess):
+            obj = target.object.accept(self)
+            current = Operations.get_property(obj, target.property_name)
+            new_value = self.stdlib_actions.decrease_by(current, amount)
+            Operations.set_property(obj, target.property_name, new_value)
+        
+        else:
+            raise HRuntimeError(f"Invalid decrease target: {type(target)}")
+
+    
+    def visit_add_statement(self, stmt: AddStatement):
+        """执行添加元素语句"""
+        item = stmt.item.accept(self)
+        target = stmt.target.accept(self)
+        
+        # 使用标准库动作
+        new_list = self.stdlib_actions.add_to(item, target)
+        
+        # 重新赋值
+        if isinstance(stmt.target, Identifier):
+            self.env.assign(stmt.target.name, new_list)
+        elif isinstance(stmt.target, GlobalVariable):
+            self.env.assign_global(stmt.target.name, new_list)
+        elif isinstance(stmt.target, PropertyAccess):
+            obj = stmt.target.object.accept(self)
+            Operations.set_property(obj, stmt.target.property_name, new_list)
+    
+    def visit_remove_statement(self, stmt: RemoveStatement):
+        """执行移除元素语句"""
+        item = stmt.item.accept(self)
+        source = stmt.source.accept(self)
+        
+        # 使用标准库动作
+        new_list = self.stdlib_actions.remove_from(item, source)
+        
+        # 重新赋值
+        if isinstance(stmt.source, Identifier):
+            self.env.assign(stmt.source.name, new_list)
+        elif isinstance(stmt.source, GlobalVariable):
+            self.env.assign_global(stmt.source.name, new_list)
+        elif isinstance(stmt.source, PropertyAccess):
+            obj = stmt.source.object.accept(self)
+            Operations.set_property(obj, stmt.source.property_name, new_list)
+
+    
+    def visit_program(self, stmt: Program):
+        """执行程序"""
+        # 先注册所有函数定义
+        for func in stmt.functions.values():
+            self.env.define(func.name, func)
+        
+        # 执行所有语句
+        try:
+            for s in stmt.statements:
+                s.accept(self)
+        except EndGameException:
+            # 游戏正常结束
+            pass
+        
+        return HNull()
+    
+    def visit_move_statement(self, stmt: MoveStatement):
+        """执行移动语句"""
+        location = stmt.location.accept(self)
+        self.stdlib_actions.move_to(location)
+    
+    def visit_wait_statement(self, stmt: WaitStatement):
+        """执行等待语句"""
+        duration = stmt.duration.accept(self)
+        unit = HString(stmt.unit) if stmt.unit else HString("seconds")
+        self.stdlib_actions.wait_for(duration, unit)
+    
+    def visit_end_game_statement(self, stmt: EndGameStatement):
+        """执行结束游戏语句"""
+        self.stdlib_actions.end_game()
+    
+    def visit_start_timer_statement(self, stmt: StartTimerStatement):
+        """执行启动计时器语句"""
+        # 如果name是标识符，直接使用其名称作为字符串
+        if isinstance(stmt.name, Identifier):
+            name = HString(stmt.name.name)
+        else:
+            # 否则求值获取结果
+            name_value = stmt.name.accept(self)
+            if isinstance(name_value, HString):
+                name = name_value
+            else:
+                name = HString(str(name_value.value) if hasattr(name_value, 'value') else str(name_value))
+        
+        duration = stmt.duration.accept(self)
+        unit = HString(stmt.unit) if stmt.unit else HString("seconds")
+        self.stdlib_actions.start_timer(name, duration, unit)
+
+
+    
+    def visit_stop_timer_statement(self, stmt: StopTimerStatement):
+        """执行停止计时器语句"""
+        name = stmt.name.accept(self)
+        self.stdlib_actions.stop_timer(name)
+    
+    def visit_perform_statement(self, stmt: PerformStatement):
+        """执行动作语句"""
+        action_name = stmt.action.accept(self)
+        args = HList([arg.accept(self) for arg in stmt.arguments])
+        self.stdlib_actions.perform(action_name, args)
+    
+    def visit_parallel_statement(self, stmt: ParallelStatement):
+        """执行并行语句"""
+        # 创建函数包装语句块
+        def parallel_func():
+            for s in stmt.body:
+                s.accept(self)
+        
+        self.stdlib_actions.run_parallel(parallel_func)
+    
+    def visit_test_statement(self, stmt: TestStatement):
+        """执行测试语句"""
+        # 设置当前测试名称
+        previous_test = self.current_test
+        self.current_test = stmt.name
+        
+        # 记录测试结果
+        test_result = {
+            'name': stmt.name,
+            'passed': True,
+            'errors': []
+        }
+        
+        # 输出测试开始信息
+        output_msg = f"\nRunning test: {stmt.name}"
+        self.output_buffer.append(output_msg)
+        self.stdlib_actions.echo(HString(output_msg))
+        
+        try:
+            # 执行测试体
+            for s in stmt.body:
+                s.accept(self)
+            
+            # 测试通过
+            success_msg = f"  ✓ Test '{stmt.name}' passed"
+            self.output_buffer.append(success_msg)
+            self.stdlib_actions.echo(HString(success_msg))
+            
+        except AssertionError as e:
+            # 测试失败（断言失败）
+            test_result['passed'] = False
+            test_result['errors'].append(str(e))
+            fail_msg = f"  ✗ Test '{stmt.name}' failed: {e}"
+            self.output_buffer.append(fail_msg)
+            self.stdlib_actions.echo(HString(fail_msg))
+            
+        except Exception as e:
+            # 测试错误（运行时错误）
+            test_result['passed'] = False
+            test_result['errors'].append(f"Runtime error: {str(e)}")
+            error_msg = f"  ✗ Test '{stmt.name}' error: {e}"
+            self.output_buffer.append(error_msg)
+            self.stdlib_actions.echo(HString(error_msg))
+        
+        finally:
+            # 恢复之前的测试上下文
+            self.current_test = previous_test
+            self.test_results.append(test_result)
+    
+    def visit_assert_statement(self, stmt: AssertStatement):
+        """执行断言语句"""
+        if stmt.operator == "truthy":
+            condition = stmt.condition.accept(self)
+            if not condition.is_truthy():
+                raise AssertionError(stmt.message or "Assertion failed")
+        
+        elif stmt.operator == "not":
+            condition = stmt.condition.accept(self)
+            if condition.is_truthy():
+                raise AssertionError(stmt.message or "Assertion failed: expected false")
+        
+        elif stmt.operator == "is":
+            actual = stmt.condition.accept(self)
+            expected = stmt.expected.accept(self)
+            if not actual.equals(expected).value:
+                raise AssertionError(
+                    stmt.message or f"Expected {expected.to_string()}, got {actual.to_string()}"
+                )
+        
+        elif stmt.operator == "contains":
+            container = stmt.condition.accept(self)
+            item = stmt.expected.accept(self)
+            if not isinstance(container, HList):
+                raise HRuntimeError("assert contains requires a list")
+            
+            found = False
+            for elem in container.value:
+                if elem.equals(item).value:
+                    found = True
+                    break
+            
+            if not found:
+                raise AssertionError(
+                    stmt.message or f"List does not contain {item.to_string()}"
+                )
+
+    def visit_class_definition(self, stmt: ClassDefinition):
+        """执行类定义语句"""
+        # 创建类实例并存储在环境中
+        class_instance = {
+            'type': stmt.class_type,
+            'name': stmt.name,
+            'extends': stmt.extends,
+            'properties': {},
+            'methods': stmt.methods,
+            'event_handlers': stmt.event_handlers
+        }
+        
+        # 评估所有属性
+        for prop_name, prop_expr in stmt.properties.items():
+            class_instance['properties'][prop_name] = prop_expr.accept(self)
+        
+        # 注册类定义到ActionContext
+        self.action_context.register_class(stmt.class_type, stmt.name, class_instance)
+        
+        # 注册所有事件处理器
+        for handler in stmt.event_handlers:
+            self._register_event_handler(stmt.class_type, stmt.name, handler)
+        
+        # 存储类定义到环境 - 使用HObject包装
+        # 创建一个特殊的HValue来存储类实例
+        class_hvalue = HObject(class_instance)
+        self.env.define(stmt.name, class_hvalue)
+        return HNull()
+
+    
+    def _register_event_handler(self, class_type: str, class_name: str, handler: EventHandler):
+        """注册事件处理器到ActionContext"""
+        # 创建执行器闭包
+        def handler_func(**kwargs):
+            # 创建新环境执行处理器
+            handler_env = Environment(self.env)
+            previous_env = self.env
+            self.env = handler_env
+            
+            try:
+                for stmt in handler.body:
+                    stmt.accept(self)
+            finally:
+                self.env = previous_env
+        
+        # 根据事件类型注册
+        event_type = handler.event_type
+        
+        if event_type == "action":
+            # on action: player uses item:
+            self.action_context.register_event_handler(
+                'action', 
+                handler_func,
+                action=handler.action
+            )
+        elif event_type == "state":
+            # on state: condition:
+            # 条件需要在触发时评估
+            def condition_func():
+                if handler.condition:
+                    result = handler.condition.accept(self)
+                    return result.is_truthy()
+                return True
+            
+            self.action_context.register_event_handler(
+                'state',
+                handler_func,
+                condition=condition_func
+            )
+        elif event_type == "timer":
+            # on timer: name expires:
+            timer_name = None
+            if handler.condition:
+                # 条件应该是计时器名称
+                from ..ast.expressions import Identifier
+                if isinstance(handler.condition, Identifier):
+                    timer_name = handler.condition.name
+            
+            self.action_context.register_event_handler(
+                'timer',
+                handler_func,
+                action=timer_name
+            )
+        elif event_type == "event":
+            # on event: name:
+            event_name = None
+            if handler.condition:
+                from ..ast.expressions import Identifier
+                if isinstance(handler.condition, Identifier):
+                    event_name = handler.condition.name
+            
+            self.action_context.register_event_handler(
+                'event',
+                handler_func,
+                action=event_name
+            )
+        elif event_type == "game_start":
+            # on game start:
+            self.action_context.register_event_handler('game_start', handler_func)
+        elif event_type == "every_turn":
+            # on every turn:
+            self.action_context.register_event_handler('every_turn', handler_func)
+
+    def visit_event_handler(self, stmt: EventHandler):
+        """执行事件处理器（单独执行时）"""
+        # 通常事件处理器在类定义时注册，但也可以单独注册
+        # 获取当前类上下文（如果有）
+        class_name = self.action_context.get_game_state('current_class')
+        class_type = self.action_context.get_game_state('current_class_type')
+        
+        if class_name and class_type:
+            self._register_event_handler(class_type, class_name, stmt)
+        else:
+            # 全局事件处理器
+            self._register_event_handler('global', 'global', stmt)
+        
+        return HNull()
+
+
+    def visit_dialog_statement(self, stmt: DialogStatement):
+        """执行对话语句"""
+        speaker = stmt.speaker.accept(self)
+        text = stmt.text.accept(self)
+        
+        # 输出对话
+        dialog_output = f"{speaker.to_string()}: {text.to_string()}"
+        self.output_buffer.append(dialog_output)
+        self.stdlib_actions.echo(HString(dialog_output))
+        
+        # 显示选项
+        for i, (option_text, target) in enumerate(stmt.options, 1):
+            option_output = f"  {i}. {option_text}"
+            self.output_buffer.append(option_output)
+            self.stdlib_actions.echo(HString(option_output))
+        
+        # 存储对话状态供后续处理
+        self.action_context.set_game_state('current_dialog', {
+            'speaker': speaker.to_string(),
+            'text': text.to_string(),
+            'options': stmt.options
+        })
+        
+        return HNull()
+
+    def visit_exit_definition(self, stmt: ExitDefinition):
+        """执行出口定义"""
+        # 出口定义在类定义时处理，这里不需要执行
+        # 但我们可以注册到游戏状态中
+        exits = self.action_context.get_game_state('exits') or {}
+        direction = stmt.direction
+        
+        exit_info = {
+            'target': stmt.target_room,
+            'condition': stmt.condition
+        }
+        
+        exits[direction] = exit_info
+        self.action_context.set_game_state('exits', exits)
+        
+        return HNull()
+    
+    def trigger_event(self, event_type: str, **kwargs) -> bool:
+        """
+        触发事件（供外部调用）
+        
+        Args:
+            event_type: 事件类型
+            **kwargs: 事件参数
+            
+        Returns:
+            是否有处理器处理了事件
+        """
+        return self.action_context.trigger_event(event_type, **kwargs)
+    
+    def start_game(self):
+        """启动游戏，触发游戏开始事件"""
+        # 触发游戏开始事件
+        self.action_context.trigger_event('game_start')
+    
+    def next_turn(self):
+        """进入下一回合"""
+        self.action_context.next_turn()
+
+    
+    def get_output(self) -> List[str]:
+
+        """获取输出缓冲区内容"""
+        return self.output_buffer.copy()
+    
+    def clear_output(self):
+        """清空输出缓冲区"""
+        self.output_buffer.clear()
+    
+    def get_test_results(self) -> List[Dict[str, Any]]:
+        """获取所有测试结果"""
+        return self.test_results.copy()
+
+    # ==================== 内置函数实现 ====================
+    
+    # 字符串函数
+    def _builtin_substring(self, s: HString, start: HNumber, length: HNumber) -> HString:
+        """获取子字符串"""
+        start_idx = int(start.value)
+        length_val = int(length.value)
+        return HString(s.value[start_idx:start_idx + length_val])
+    
+    def _builtin_split(self, s: HString, delimiter: HString) -> HList:
+        """分割字符串"""
+        parts = s.value.split(delimiter.value)
+        return HList([HString(p) for p in parts])
+    
+    def _builtin_trim(self, s: HString) -> HString:
+        """去除字符串首尾空白"""
+        return HString(s.value.strip())
+    
+    def _builtin_upper(self, s: HString) -> HString:
+        """转换为大写"""
+        return HString(s.value.upper())
+    
+    def _builtin_lower(self, s: HString) -> HString:
+        """转换为小写"""
+        return HString(s.value.lower())
+    
+    def _builtin_contains(self, s: HString, substr: HString) -> HBoolean:
+        """检查字符串是否包含子串"""
+        return HBoolean(substr.value in s.value)
+    
+    def _builtin_startsWith(self, s: HString, prefix: HString) -> HBoolean:
+        """检查字符串是否以指定前缀开头"""
+        return HBoolean(s.value.startswith(prefix.value))
+    
+    def _builtin_endsWith(self, s: HString, suffix: HString) -> HBoolean:
+        """检查字符串是否以指定后缀结尾"""
+        return HBoolean(s.value.endswith(suffix.value))
+    
+    def _builtin_replace(self, s: HString, old: HString, new: HString) -> HString:
+        """替换字符串中的子串"""
+        return HString(s.value.replace(old.value, new.value))
+    
+    # 数学函数
+    def _builtin_abs(self, n: HNumber) -> HNumber:
+        """绝对值"""
+        return HNumber(abs(n.value))
+    
+    def _builtin_floor(self, n: HNumber) -> HNumber:
+        """向下取整"""
+        import math
+        return HNumber(math.floor(n.value))
+    
+    def _builtin_ceil(self, n: HNumber) -> HNumber:
+        """向上取整"""
+        import math
+        return HNumber(math.ceil(n.value))
+    
+    def _builtin_round(self, n: HNumber) -> HNumber:
+        """四舍五入"""
+        return HNumber(round(n.value))
+    
+    def _builtin_max(self, *args: HNumber) -> HNumber:
+        """最大值"""
+        return HNumber(max(arg.value for arg in args))
+    
+    def _builtin_min(self, *args: HNumber) -> HNumber:
+        """最小值"""
+        return HNumber(min(arg.value for arg in args))
+    
+    def _builtin_sqrt(self, n: HNumber) -> HNumber:
+        """平方根"""
+        import math
+        return HNumber(math.sqrt(n.value))
+    
+    def _builtin_pow(self, base: HNumber, exp: HNumber) -> HNumber:
+        """幂运算"""
+        return HNumber(base.value ** exp.value)
+    
+    # 列表函数
+    def _builtin_sort(self, lst: HList, reverse: HBoolean = None) -> HList:
+        """排序列表"""
+        reverse_val = reverse.value if reverse else False
+        sorted_elements = sorted(lst.value, key=lambda x: x.value, reverse=reverse_val)
+        return HList(sorted_elements)
+    
+    def _builtin_reverse(self, lst: HList) -> HList:
+        """反转列表"""
+        return HList(lst.value[::-1])
+    
+    def _builtin_join(self, lst: HList, separator: HString) -> HString:
+        """连接列表元素为字符串"""
+        return HString(separator.value.join(str(elem.value) for elem in lst.value))
+    
+    def _builtin_indexOf(self, lst: HList, item: HValue) -> HNumber:
+        """查找元素索引"""
+        for i, elem in enumerate(lst.value):
+            if elem.equals(item).value:
+                return HNumber(i)
+        return HNumber(-1)
+    
+    def _builtin_append(self, lst: HList, item: HValue) -> HList:
+        """添加元素到列表"""
+        new_list = HList(lst.value + [item])
+        return new_list
+    
+    def _builtin_removeAt(self, lst: HList, index: HNumber) -> HList:
+        """移除指定索引的元素"""
+        idx = int(index.value)
+        new_elements = lst.value[:idx] + lst.value[idx+1:]
+        return HList(new_elements)
+    
+    # 类型转换函数
+    def _builtin_toString(self, value: HValue) -> HString:
+        """转换为字符串"""
+        return HString(value.to_string())
+    
+    def _builtin_toNumber(self, value: HValue) -> HNumber:
+        """转换为数字"""
+        if isinstance(value, HString):
+            try:
+                return HNumber(float(value.value))
+            except ValueError:
+                raise HRuntimeError(f"Cannot convert '{value.value}' to number")
+        elif isinstance(value, HNumber):
+            return value
+        elif isinstance(value, HBoolean):
+            return HNumber(1.0 if value.value else 0.0)
+        raise HRuntimeError(f"Cannot convert {value.type_name()} to number")
+    
+    def _builtin_toBoolean(self, value: HValue) -> HBoolean:
+        """转换为布尔值"""
+        return HBoolean(value.is_truthy())
+    
+    def _builtin_toList(self, value: HValue) -> HList:
+        """转换为列表"""
+        if isinstance(value, HString):
+            return HList([HString(c) for c in value.value])
+        elif isinstance(value, HList):
+            return value
+        raise HRuntimeError(f"Cannot convert {value.type_name()} to list")
+    
+    # 通用函数
+    def _builtin_len(self, value: HValue) -> HNumber:
+        """获取长度"""
+        if isinstance(value, HString):
+            return HNumber(len(value.value))
+        elif isinstance(value, HList):
+            return HNumber(len(value.value))
+        raise HRuntimeError(f"Cannot get length of {value.type_name()}")
+    
+    def _builtin_type(self, value: HValue) -> HString:
+        """获取类型名称"""
+        return HString(value.type_name())
+    
+    def _builtin_range(self, start: HNumber, end: HNumber, step: HNumber = None) -> HList:
+        """生成范围列表"""
+        step_val = int(step.value) if step else 1
+        start_val = int(start.value)
+        end_val = int(end.value)
+        return HList([HNumber(i) for i in range(start_val, end_val, step_val)])
+    
+    def _builtin_random(self) -> HNumber:
+        """生成0-1之间的随机数"""
+        import random
+        return HNumber(random.random())
+    
+    def _builtin_randomInt(self, min_val: HNumber, max_val: HNumber) -> HNumber:
+        """生成指定范围内的随机整数"""
+        import random
+        return HNumber(random.randint(int(min_val.value), int(max_val.value)))
+
+
+# 便捷函数
+
+def evaluate(program: Program, environment: Optional[Environment] = None) -> Any:
+    """
+    便捷函数：执行程序
+    """
+    evaluator = Evaluator(environment)
+    return evaluator.evaluate(program)
+
+
+# 测试代码
+if __name__ == "__main__":
+    from ..parser import parse
+    
+    test_code = '''
+set x to 10
+set y to 20
+set sum to x + y
+echo "Sum is: " + sum
+
+if sum is greater than 25:
+    echo "Sum is large!"
+else:
+    echo "Sum is small."
+
+function greet(name):
+    echo "Hello, " + name
+
+greet("World")
+
+// 测试框架示例
+test "basic arithmetic":
+    set a to 5
+    set b to 3
+    set result to a + b
+    assert result is 8
+    assert not (result is 10)
+    assert [1, 2, 3, 4, 5] contains 3
+
+test "string operations":
+    set msg to "hello"
+    assert msg is "hello"
+    assert not (msg is "world")
+'''
+    
+    try:
+        program = parse(test_code)
+        evaluator = Evaluator()
+        evaluator.evaluate(program)
+        print(f"\n输出缓冲区: {evaluator.get_output()}")
+        print(f"\n测试结果: {evaluator.get_test_results()}")
+    except Exception as e:
+        print(f"错误: {e}")
+        import traceback
+        traceback.print_exc()

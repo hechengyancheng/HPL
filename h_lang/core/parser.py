@@ -4,9 +4,10 @@ H-Language Parser
 """
 
 from typing import List, Optional
-from .lexer import Token, TokenType, tokenize
+from .lexer import Token, TokenType, tokenize, KEYWORDS
 from .ast.expressions import *
 from .ast.statements import *
+
 
 
 class ParseError(Exception):
@@ -84,7 +85,8 @@ class Parser:
                 return
             if self.peek().type in [
                 TokenType.SET, TokenType.IF, TokenType.WHILE,
-                TokenType.FUNCTION, TokenType.RETURN, TokenType.FOR
+                TokenType.FUNCTION, TokenType.RETURN, TokenType.FOR,
+                TokenType.TEST, TokenType.ASSERT
             ]:
                 return
             self.advance()
@@ -110,16 +112,20 @@ class Parser:
                     continue
                 
                 stmt = self.declaration()
+
                 if stmt:
                     if isinstance(stmt, FunctionDefinition):
                         program.functions[stmt.name] = stmt
-                    program.statements.append(stmt)
+                    else:
+                        program.statements.append(stmt)
                     
             except ParseError as e:
+
                 print(f"Parse Error: {e}")
                 self.synchronize()
         
         return program
+
     
     def declaration(self) -> Optional[Statement]:
         """
@@ -162,15 +168,58 @@ class Parser:
         
         if self.match(TokenType.DECREASE):
             return self.decrease_statement()
-
+        
+        if self.match(TokenType.ADD):
+            return self.add_statement()
+        
+        if self.match(TokenType.REMOVE):
+            return self.remove_statement()
+        
+        if self.match(TokenType.MOVE):
+            return self.move_statement()
+        
+        if self.match(TokenType.WAIT):
+            return self.wait_statement()
+        
+        if self.match(TokenType.END):
+            return self.end_game_statement()
+        
+        if self.match(TokenType.START):
+            return self.start_timer_statement()
+        
+        if self.match(TokenType.STOP):
+            return self.stop_timer_statement()
+        
+        if self.match(TokenType.PERFORM):
+            return self.perform_statement()
+        
+        if self.match(TokenType.RUN):
+            return self.parallel_statement()
+        
+        if self.match(TokenType.TEST):
+            return self.test_statement()
+        
+        if self.match(TokenType.ASSERT):
+            return self.assert_statement()
+        
+        if self.match(TokenType.ROOM):
+            return self.class_definition("room")
+        
+        if self.match(TokenType.ITEM):
+            return self.class_definition("item")
+        
+        if self.match(TokenType.CHARACTER):
+            return self.class_definition("character")
         
         if self.match(TokenType.FOR):
             # 简化处理：for循环
             pass
+
         
         # 表达式语句
         expr = self.expression()
         return ExpressionStatement(expr)
+
     
     def assignment_statement(self) -> Assignment:
         """
@@ -180,6 +229,9 @@ class Parser:
         self.consume(TokenType.TO, "Expected 'to' after assignment target")
         value = self.expression()
         return Assignment(target, value)
+
+
+
     
     def lvalue(self) -> Expression:
         """
@@ -255,7 +307,19 @@ class Parser:
         """
         解析函数定义: function <name>([params]): ... 或 function <name>: ...
         """
-        name = self.consume(TokenType.IDENTIFIER, "Expected function name").value
+        # 函数名可以是标识符或关键字
+        if self.check(TokenType.IDENTIFIER):
+            name = self.advance().value
+        else:
+            # 尝试接受关键字作为函数名
+            name = None
+            for token_type in KEYWORDS.values():
+                if self.check(token_type):
+                    name = self.advance().lexeme
+                    break
+            if name is None:
+                raise ParseError("Expected function name", self.peek())
+
         
         # 解析可选的参数列表
         parameters = []
@@ -327,9 +391,320 @@ class Parser:
         amount = self.expression()
         
         return DecreaseStatement(target, amount)
+    
+    def add_statement(self) -> AddStatement:
+        """
+        解析添加语句: add <item> to <target>
+        """
+        item = self.expression()
+        self.consume(TokenType.TO, "Expected 'to' after item")
+        target = self.lvalue()
+        return AddStatement(item, target)
+    
+    def remove_statement(self) -> RemoveStatement:
+        """
+        解析移除语句: remove <item> from <source>
+        """
+        item = self.expression()
+        self.consume(TokenType.FROM, "Expected 'from' after item")
+        source = self.lvalue()
+        return RemoveStatement(item, source)
+    
+    def move_statement(self) -> MoveStatement:
+        """
+        解析移动语句: move to <location>
+        """
+        self.consume(TokenType.TO, "Expected 'to' after 'move'")
+        location = self.expression()
+        return MoveStatement(location)
+    
+    def wait_statement(self) -> WaitStatement:
+        """
+        解析等待语句: wait for <duration> <unit>
+        """
+        self.consume(TokenType.FOR, "Expected 'for' after 'wait'")
+        duration = self.expression()
+        
+        # 解析时间单位
+        unit = "seconds"
+        if self.match(TokenType.SECONDS):
+            unit = "seconds"
+        elif self.match(TokenType.MINUTES):
+            unit = "minutes"
+        
+        return WaitStatement(duration, unit)
+    
+    def end_game_statement(self) -> EndGameStatement:
+        """
+        解析结束游戏语句: end game
+        """
+        self.consume(TokenType.GAME, "Expected 'game' after 'end'")
+        return EndGameStatement()
+    
+    def start_timer_statement(self) -> StartTimerStatement:
+        """
+        解析启动计时器语句: start timer <name> for <duration> <unit>
+        """
+        self.consume(TokenType.TIMER, "Expected 'timer' after 'start'")
+        name = self.expression()
+        self.consume(TokenType.FOR, "Expected 'for' after timer name")
+        duration = self.expression()
+        
+        # 解析时间单位
+        unit = "seconds"
+        if self.match(TokenType.SECONDS):
+            unit = "seconds"
+        elif self.match(TokenType.MINUTES):
+            unit = "minutes"
+        
+        return StartTimerStatement(name, duration, unit)
+    
+    def stop_timer_statement(self) -> StopTimerStatement:
+        """
+        解析停止计时器语句: stop timer <name>
+        """
+        self.consume(TokenType.TIMER, "Expected 'timer' after 'stop'")
+        name = self.expression()
+        return StopTimerStatement(name)
+    
+    def perform_statement(self) -> PerformStatement:
+        """
+        解析动作语句: perform <action> [with <arg1>, <arg2>, ...]
+        """
+        action = self.expression()
+        
+        arguments = []
+        if self.match(TokenType.WITH):
+            arguments.append(self.expression())
+            while self.match(TokenType.COMMA):
+                arguments.append(self.expression())
+        
+        return PerformStatement(action, arguments)
+    
+    def parallel_statement(self) -> ParallelStatement:
+        """
+        解析并行执行语句: run in parallel: ...
+        """
+        self.consume(TokenType.COLON, "Expected ':' after 'run in parallel'")
+        self.consume(TokenType.NEWLINE, "Expected newline after 'run in parallel:'")
+        
+        body = self.block()
+        return ParallelStatement(body)
+
+    def class_definition(self, class_type: str) -> ClassDefinition:
+        """
+        解析类定义: room Name:, item Name extends Parent:, character Name:
+        """
+        name = self.consume(TokenType.IDENTIFIER, f"Expected {class_type} name").value
+        
+        extends = None
+        if self.match(TokenType.EXTENDS):
+            extends = self.consume(TokenType.IDENTIFIER, "Expected parent class name").value
+        
+        self.consume(TokenType.COLON, f"Expected ':' after {class_type} name")
+        self.consume(TokenType.NEWLINE, f"Expected newline after {class_type} name:")
+        
+        # 期望INDENT
+        if not self.check(TokenType.INDENT):
+            raise ParseError("Expected indented block for class definition", self.peek())
+        self.advance()  # consume INDENT
+        
+        properties = {}
+        methods = {}
+        event_handlers = []
+        
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.check(TokenType.NEWLINE):
+                self.advance()
+                continue
+            
+            if self.check(TokenType.IDENTIFIER):
+                prop_name = self.advance().value
+                
+                if self.check(TokenType.COLON):
+                    # Property definition: property_name: value
+                    self.advance()  # consume :
+                    properties[prop_name] = self.expression()
+                    if self.check(TokenType.NEWLINE):
+                        self.advance()
+                elif self.check(TokenType.LPAREN):
+                    # Method definition
+                    methods[prop_name] = self.finish_function_definition(prop_name)
+                else:
+                    # Simple property without value
+                    properties[prop_name] = Literal(None)
+            elif self.check(TokenType.ON):
+                # Event handler
+                event_handlers.append(self.event_handler())
+            elif self.check(TokenType.EXIT):
+                # Exit definition
+                self.advance()  # consume 'exit'
+                # Handle exit definition if needed
+            elif self.check(TokenType.DIALOG):
+                # Dialog statement
+                self.advance()  # consume 'dialog'
+                # Handle dialog if needed
+            else:
+                break
+        
+        # 消耗DEDENT
+        if self.check(TokenType.DEDENT):
+            self.advance()
+        
+        return ClassDefinition(class_type, name, extends, properties, methods, event_handlers)
+
+    
+    def event_handler(self) -> EventHandler:
+        """
+        解析事件处理器: on action: player uses item:, on state: health is 0:, etc.
+        """
+        self.advance()  # consume 'on'
+        
+        event_type = self.consume(TokenType.IDENTIFIER, "Expected event type").value
+        
+        condition = None
+        action = None
+        
+        if event_type == "action":
+            # on action: player uses item:
+            self.consume(TokenType.COLON, "Expected ':' after 'action'")
+            # Parse action description
+            if self.check(TokenType.IDENTIFIER):
+                action_parts = []
+                while not self.check(TokenType.COLON) and not self.is_at_end():
+                    action_parts.append(self.advance().value)
+                action = " ".join(action_parts)
+        
+        elif event_type in ["state", "timer", "event"]:
+            # on state: condition:, on timer: name expires:, on event: name:
+            self.consume(TokenType.COLON, f"Expected ':' after '{event_type}'")
+            if not self.check(TokenType.NEWLINE):
+                condition = self.expression()
+        
+        elif event_type == "game":
+            # on game start:
+            if self.match(TokenType.IDENTIFIER):
+                start_word = self.previous().value
+                if start_word == "start":
+                    event_type = "game_start"
+        
+        elif event_type == "every":
+            # on every turn:
+            if self.match(TokenType.IDENTIFIER):
+                turn_word = self.previous().value
+                if turn_word == "turn":
+                    event_type = "every_turn"
+        
+        self.consume(TokenType.COLON, "Expected ':' after event specification")
+        self.consume(TokenType.NEWLINE, "Expected newline after event specification")
+        
+        body = self.block()
+        return EventHandler(event_type, condition, action, body)
+    
+    def dialog_statement(self) -> DialogStatement:
+        """
+        解析对话语句: dialog speaker "text": ...
+        """
+        speaker = self.expression()
+        text = self.expression()
+        
+        self.consume(TokenType.COLON, "Expected ':' after dialog text")
+        self.consume(TokenType.NEWLINE, "Expected newline after dialog text:")
+        
+        # 期望INDENT
+        if not self.check(TokenType.INDENT):
+            raise ParseError("Expected indented block for dialog options", self.peek())
+        self.advance()  # consume INDENT
+        
+        options = []
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.check(TokenType.NEWLINE):
+                self.advance()
+                continue
+            
+            if self.match(TokenType.OPTION):
+                option_text = self.consume(TokenType.STRING, "Expected option text").value
+                self.consume(TokenType.ARROW, "Expected '->' after option text")
+                target = self.consume(TokenType.IDENTIFIER, "Expected target label").value
+                options.append((option_text, target))
+                if self.check(TokenType.NEWLINE):
+                    self.advance()
+            else:
+                break
+        
+        # 消耗DEDENT
+        if self.check(TokenType.DEDENT):
+            self.advance()
+        
+        return DialogStatement(speaker, text, options)
+
+    
+    def exit_definition(self) -> ExitDefinition:
+        """
+        解析出口定义: exit direction to Room [if condition]
+        """
+        direction = self.consume(TokenType.IDENTIFIER, "Expected direction").value
+        
+        self.consume(TokenType.TO, "Expected 'to' after direction")
+        target_room = self.consume(TokenType.IDENTIFIER, "Expected room name").value
+        
+        condition = None
+        if self.match(TokenType.IF):
+            condition = self.expression()
+        
+        if self.check(TokenType.NEWLINE):
+            self.advance()
+        
+        return ExitDefinition(direction, target_room, condition)
+
+    
+    def test_statement(self) -> TestStatement:
+        """
+        解析测试语句: test "name": ...
+        """
+        # 解析测试名称（字符串）
+        name_token = self.consume(TokenType.STRING, "Expected test name (string)")
+        name = name_token.value
+        
+        self.consume(TokenType.COLON, "Expected ':' after test name")
+        body = self.block()
+        
+        return TestStatement(name, body)
+    
+    def assert_statement(self) -> AssertStatement:
+        """
+        解析断言语句:
+        - assert <condition>
+        - assert not <condition>
+        - assert <value> is <expected>
+        - assert <list> contains <item>
+        """
+        # 检查各种断言形式
+        if self.match(TokenType.NOT):
+            # assert not <condition>
+            condition = self.expression()
+            return AssertStatement(condition, operator="not", expected=None, message="Assertion failed: expected false")
+        
+        # 解析条件表达式
+        condition = self.expression()
+        
+        # 检查是否是 assert ... is ...
+        if self.match(TokenType.IS):
+            expected = self.expression()
+            return AssertStatement(condition, operator="is", expected=expected, message="Assertion failed: values not equal")
+        
+        # 检查是否是 assert ... contains ...
+        if self.match(TokenType.CONTAINS):
+            item = self.expression()
+            return AssertStatement(condition, operator="contains", expected=item, message="Assertion failed: list does not contain item")
+        
+        # 简单断言: assert <condition>
+        return AssertStatement(condition, operator="truthy", expected=None, message="Assertion failed: condition is falsy")
+
 
     
     def block(self) -> List[Statement]:
+
         """
         解析代码块（缩进块）
         """
@@ -517,6 +892,31 @@ class Parser:
         
         return expr
     
+    def consume_identifier_or_keyword(self, message: str) -> str:
+        """消耗标识符或关键字作为名称"""
+        if self.check(TokenType.IDENTIFIER):
+            return self.advance().value
+        
+        # 尝试接受关键字作为名称
+        for token_type in KEYWORDS.values():
+            if self.check(token_type):
+                return self.advance().lexeme
+        
+        raise ParseError(message, self.peek())
+    
+    def _is_keyword_identifier(self) -> bool:
+        """检查当前token是否是可以作为标识符使用的关键字"""
+        # 这些关键字可以作为函数名使用（仅包含实际存在的关键字）
+        keyword_identifiers = [
+            TokenType.CONTAINS, TokenType.ADD, TokenType.REMOVE,
+        ]
+        return self.peek().type in keyword_identifiers
+
+    
+    def _consume_keyword_identifier(self) -> str:
+        """消耗一个关键字作为标识符"""
+        return self.advance().lexeme
+    
     def primary(self) -> Expression:
         """
         基本表达式: 字面量、标识符、括号表达式、函数调用
@@ -552,14 +952,30 @@ class Parser:
             # 属性访问链
             expr = Identifier(name)
             while self.match(TokenType.DOT):
-                property_name = self.consume(TokenType.IDENTIFIER, "Expected property name after '.'").value
-                expr = PropertyAccess(expr, property_name)
+                # 属性名可以是标识符或关键字
+                property_name = self.consume_identifier_or_keyword("Expected property name after '.'")
                 
-                # 检查方法调用
-                if self.match(TokenType.LPAREN):
+                # 检查是否是方法调用（必须在创建PropertyAccess之前检查）
+                if self.check(TokenType.LPAREN):
+                    # 方法调用: obj.method(args)
                     return self.finish_method_call(expr, property_name)
+                
+                # 属性访问
+                expr = PropertyAccess(expr, property_name)
             
             return expr
+        
+        # 关键字作为函数名（如 contains, add 等）
+        if self._is_keyword_identifier():
+            name = self._consume_keyword_identifier()
+            
+            # 必须是函数调用形式
+            if self.match(TokenType.LPAREN):
+                return self.finish_call(name)
+            
+            # 如果不是函数调用，则作为普通标识符
+            return Identifier(name)
+
         
         # 括号表达式
         if self.match(TokenType.LPAREN):
@@ -572,6 +988,9 @@ class Parser:
             return self.list_literal()
         
         raise ParseError("Expected expression", self.peek())
+
+
+
     
     def finish_call(self, name: str) -> FunctionCall:
         """
@@ -591,6 +1010,8 @@ class Parser:
         """
         完成方法调用解析
         """
+        # Consume the opening '('
+        self.consume(TokenType.LPAREN, "Expected '(' after method name")
         arguments = []
         
         if not self.check(TokenType.RPAREN):
@@ -600,6 +1021,9 @@ class Parser:
         
         self.consume(TokenType.RPAREN, "Expected ')' after arguments")
         return MethodCall(object, method_name, arguments)
+
+
+
     
     def list_literal(self) -> ListLiteral:
         """
@@ -647,6 +1071,13 @@ function sum(a, b):
 
 set result to sum(10, 20)
 ask "What is your name?" as userName
+
+// 测试框架
+test "basic arithmetic":
+    set x to 10
+    assert x is 10
+    assert not (x is 5)
+    assert [1, 2, 3] contains 2
 '''
     
     try:

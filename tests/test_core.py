@@ -5,14 +5,19 @@ H语言核心模块单元测试
 
 import sys
 import os
+
+# 添加项目根目录到路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from core.lexer import tokenize, TokenType, LexerError
-from core.parser import parse, ParseError
-from core.interpreter import HLangInterpreter, run
-from core.types.primitive import *
-from core.types.operations import Operations
-from core.interpreter_impl.control_flow import HRuntimeError
+# 通过包导入所有需要的组件
+from h_lang.core import (
+    HLangInterpreter, run,
+    tokenize, TokenType, LexerError,
+    parse, ParseError,
+    HRuntimeError,
+    HNumber, HString, HBoolean, HList, HNull, Operations
+)
+
 
 
 

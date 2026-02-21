@@ -21,28 +21,43 @@ class TokenType(Enum):
     GLOBAL_VAR = auto()       # $xxx 全局变量
     
     # 关键字
+    ADD = auto()              # add
     AND = auto()
     BY = auto()
+    CHARACTER = auto()        # character
     CONTAINS = auto()
+    DIALOG = auto()           # dialog
     ELSE = auto()
     END = auto()
     EVERY = auto()
+    EXIT = auto()             # exit
+    EXTENDS = auto()          # extends
     FALSE = auto()
     FOR = auto()
     FROM = auto()
+    GAME = auto()             # game
     HAS = auto()
     IF = auto()
     IN = auto()
+    ITEM = auto()             # item
+
     DECREASE = auto()
     INCREASE = auto()
     IS = auto()
-
+    MINUTES = auto()          # minutes
+    MOVE = auto()             # move
     NOT = auto()
     NULL_KEYWORD = auto()
     ON = auto()
+    OPTION = auto()           # option
     OR = auto()
+    PARALLEL = auto()         # parallel
+
+    PERFORM = auto()            # perform
     REMOVE = auto()
+    ROOM = auto()             # room
     RUN = auto()
+    SECONDS = auto()          # seconds
     SET = auto()
     START = auto()
     STOP = auto()
@@ -53,6 +68,7 @@ class TokenType(Enum):
     WAIT = auto()
     WHEN = auto()
     WHILE = auto()
+    WITH = auto()             # with
     
     # 函数相关关键字
     FUNCTION = auto()         # function
@@ -60,6 +76,11 @@ class TokenType(Enum):
     ASK = auto()              # ask
     AS = auto()               # as
     ECHO = auto()             # echo
+    
+    # 测试框架关键字
+    TEST = auto()             # test
+    ASSERT = auto()           # assert
+
     
     # 运算符
     PLUS = auto()             # +
@@ -112,28 +133,43 @@ class Token:
 
 # 关键字映射表
 KEYWORDS = {
+    'add': TokenType.ADD,
     'and': TokenType.AND,
     'by': TokenType.BY,
+    'character': TokenType.CHARACTER,
     'contains': TokenType.CONTAINS,
+    'dialog': TokenType.DIALOG,
     'else': TokenType.ELSE,
     'end': TokenType.END,
     'every': TokenType.EVERY,
+    'exit': TokenType.EXIT,
+    'extends': TokenType.EXTENDS,
     'false': TokenType.FALSE,
+
     'for': TokenType.FOR,
     'from': TokenType.FROM,
+    'game': TokenType.GAME,
     'has': TokenType.HAS,
     'if': TokenType.IF,
     'in': TokenType.IN,
-    'increase': TokenType.INCREASE,
+    'item': TokenType.ITEM,
     'decrease': TokenType.DECREASE,
+    'increase': TokenType.INCREASE,
     'is': TokenType.IS,
-
+    'minutes': TokenType.MINUTES,
+    'move': TokenType.MOVE,
     'not': TokenType.NOT,
     'null': TokenType.NULL_KEYWORD,
     'on': TokenType.ON,
+    'option': TokenType.OPTION,
     'or': TokenType.OR,
+    'parallel': TokenType.PARALLEL,
+
+    'perform': TokenType.PERFORM,
     'remove': TokenType.REMOVE,
+    'room': TokenType.ROOM,
     'run': TokenType.RUN,
+    'seconds': TokenType.SECONDS,
     'set': TokenType.SET,
     'start': TokenType.START,
     'stop': TokenType.STOP,
@@ -144,12 +180,16 @@ KEYWORDS = {
     'wait': TokenType.WAIT,
     'when': TokenType.WHEN,
     'while': TokenType.WHILE,
+    'with': TokenType.WITH,
     'function': TokenType.FUNCTION,
     'return': TokenType.RETURN,
     'ask': TokenType.ASK,
     'as': TokenType.AS,
     'echo': TokenType.ECHO,
+    'test': TokenType.TEST,
+    'assert': TokenType.ASSERT,
 }
+
 
 
 class LexerError(Exception):
