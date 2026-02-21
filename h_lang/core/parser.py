@@ -326,10 +326,14 @@ class Parser:
         if self.match(TokenType.LPAREN):
             # 有括号的参数列表
             if not self.check(TokenType.RPAREN):
-                parameters.append(self.consume(TokenType.IDENTIFIER, "Expected parameter name").value)
+                # 参数名可以是标识符或关键字
+                param_name = self.consume_identifier_or_keyword("Expected parameter name")
+                parameters.append(param_name)
                 while self.match(TokenType.COMMA):
-                    parameters.append(self.consume(TokenType.IDENTIFIER, "Expected parameter name").value)
+                    param_name = self.consume_identifier_or_keyword("Expected parameter name")
+                    parameters.append(param_name)
             self.consume(TokenType.RPAREN, "Expected ')' after parameters")
+
         
         self.consume(TokenType.COLON, "Expected ':' after function signature")
         
