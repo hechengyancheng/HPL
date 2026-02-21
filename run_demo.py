@@ -10,12 +10,10 @@ import os
 # 添加父目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core.interpreter import HLangInterpreter, run_file, run
-
-from core.lexer import LexerError
-from core.parser import ParseError
-from core.runtime.control_flow import HRuntimeError
-
+from h_lang import HLangInterpreter, run, run_file
+from h_lang import LexerError
+from h_lang import ParseError
+from h_lang import HRuntimeError
 
 def run_demo():
     """运行核心功能演示"""
@@ -23,8 +21,8 @@ def run_demo():
     print("H语言核心功能演示 (HPL Core Features Demo)")
     print("=" * 70)
     
-    demo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "examples", "core_features_demo.hpl")
-
+    # 使用当前目录作为基准，因为脚本就在HPL目录中
+    demo_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "examples", "core_features_demo.hpl")
     
     if not os.path.exists(demo_file):
         print(f"错误: 找不到演示文件 {demo_file}")
@@ -95,10 +93,10 @@ def run_specific_section(section_name):
     
     start_line, end_line = sections[section_name]
     
-    demo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "examples", "core_features_demo.hpl")
+    # 使用当前目录作为基准
+    demo_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "examples", "core_features_demo.hpl")
     
     with open(demo_file, 'r', encoding='utf-8') as f:
-
         lines = f.readlines()
     
     # 提取特定行
