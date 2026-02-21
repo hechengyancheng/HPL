@@ -23,7 +23,8 @@ def run_demo():
     print("H语言核心功能演示 (HPL Core Features Demo)")
     print("=" * 70)
     
-    demo_file = os.path.join(os.path.dirname(__file__), "examples", "core_features_demo.hpl")
+    demo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "examples", "core_features_demo.hpl")
+
     
     if not os.path.exists(demo_file):
         print(f"错误: 找不到演示文件 {demo_file}")
@@ -94,9 +95,10 @@ def run_specific_section(section_name):
     
     start_line, end_line = sections[section_name]
     
-    demo_file = os.path.join(os.path.dirname(__file__), "examples", "core_features_demo.hpl")
+    demo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "examples", "core_features_demo.hpl")
     
     with open(demo_file, 'r', encoding='utf-8') as f:
+
         lines = f.readlines()
     
     # 提取特定行
